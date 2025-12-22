@@ -14,7 +14,7 @@ WORKDIR /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    --mount=type=bind,source=src/mypackage/__init__.py,target=src/mypackage/__init__.py \
+    --mount=type=bind,source=src/geospatial_utils/__init__.py,target=src/geospatial_utils/__init__.py \
     uv sync --locked --no-install-project --no-dev
 
 COPY pyproject.toml uv.lock /app/
@@ -34,4 +34,4 @@ ENV PATH="/app/.venv/bin:$PATH" VIRTUAL_ENV="/app/.venv"
 # Unset entrypoint from parent image
 ENTRYPOINT []
 
-CMD ["python", "-m", "mypackage"]
+CMD ["python", "-m", "geospatial_utils"]

@@ -1,7 +1,7 @@
-mypackage
+geospatial_utils
 =========
 
 .. toctree::
    :maxdepth: 4
 
-   mypackage
+   geospatial_utils

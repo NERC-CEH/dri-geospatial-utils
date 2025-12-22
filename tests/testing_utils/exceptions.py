@@ -1,0 +1,2 @@
+class ComparisonError(Exception):
+    pass

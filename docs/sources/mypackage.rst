@@ -1,13 +1,13 @@
-mypackage package
+geospatial_utils package
 =================
 
 Submodules
 ----------
 
-mypackage.module module
+geospatial_utils.module module
 -----------------------
 
-.. automodule:: mypackage.module
+.. automodule:: geospatial_utils.module
    :members:
    :undoc-members:
    :show-inheritance:
@@ -15,7 +15,7 @@ mypackage.module module
 Module contents
 ---------------
 
-.. automodule:: mypackage
+.. automodule:: geospatial_utils
    :members:
    :undoc-members:
    :show-inheritance:

@@ -17,8 +17,8 @@ jobs:
     needs: [test-python]
     uses: NERC-CEH/dri-cicd/.github/workflows/build-test-deploy-docker.yml@main
     with:
-      use_uv: true
-      package_name: mypackage
+      use_uv: false
+      package_name: geospatial_utils
     secrets:
       AWS_REGION: ${{ secrets.AWS_REGION }}
       AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
