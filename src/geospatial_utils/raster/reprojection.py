@@ -19,6 +19,9 @@ def reproject_raster(input_path: str | Path, output_path: str | Path, epsg_code:
     output_srs = osr.SpatialReference()
     output_srs.ImportFromEPSG(epsg_code)
 
+    if input_srs.IsSame(output_srs):
+        raise ValueError(f"The raster is already projected to EPSG: {epsg_code}")
+
     creation_options = ["TILED=YES", "COMPRESS=DEFLATE", "PREDICTOR=2", "ZLEVEL=9"]
 
     warp_options = gdal.WarpOptions(dstSRS=output_srs, srcSRS=input_srs, creationOptions=creation_options)
