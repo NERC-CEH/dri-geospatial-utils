@@ -1,9 +1,7 @@
-name: gis_utils
 channels:
   - conda-forge
 dependencies:
-  - python=3.14
+  - python>=3.13
   - pip
   - gdal
-  - pip:
-    - uv
+  - pyproj

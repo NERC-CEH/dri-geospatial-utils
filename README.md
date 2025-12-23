@@ -1,119 +1,95 @@
-# Python Project Template
 
 [![tests badge](https://github.com/NERC-CEH/python-template/actions/workflows/pipeline.yml/badge.svg)](https://github.com/NERC-CEH/python-template/actions)
 [![docs badge](https://github.com/NERC-CEH/python-template/actions/workflows/deploy-docs.yml/badge.svg)](https://nerc-ceh.github.io/python-template/)
 
 [Read the docs!](https://nerc-ceh.github.io/python-template)
 
-This repository is a template for a basic Python project. Included here is:
+# Geospatial Utils
 
-* Example Python package
-* Tests
-* Documentation
-* Automatic incremental versioning
-* CI/CD
-    * Installs and tests the package
-    * Builds documentation on branches
-    * Deploys documentation on main branch
-    * Deploys docker image to AWS ECR
-* Githook to ensure linting and code checking
+A collection of geospatial utility functions and scripts.
+
 
 ## Getting Started
 
-### Using the Githook
+### Virtual environment setup
 
-From the root directory of the repo, run:
+Due to the need to use GDAL, the conda is used for the virtual environment. Instructions for installing conda can be
+found here https://github.com/conda-forge/miniforge?tab=readme-ov-file#unix-like-platforms-macos-linux--wsl
 
-```console
-git config --local core.hooksPath .githooks/
+#### Creating the conda environment
+
+To create the initial conda environment:
+
+```commandline
+conda env create -n gis_utils --file environment.yml
 ```
 
-This will set this repo up to use the git hooks in the `.githooks/` directory. The hook runs `ruff format --check` and `ruff check` to prevent commits that are not formatted correctly or have errors. The hook intentionally does not alter the files, but informs the user which command to run.
+#### Activating the conda environment
 
-### Installing the package
+To activate the environment run:
 
-You can install everything needed to run the project (even including
-Python) with [uv](https://docs.astral.sh/uv).
-
-```console
-uv sync
+```commandline
+conda activate gis_utils
 ```
 
-It will set up a Python virtualenv in `.venv`.  Activate it as normal
-with `. .venv/bin/activate` or prefix commands with `uv run`.  In
-fact, `uv run` will automatically set things up with no need for `uv
-sync`.  You can add packages with `uv add` and remove them with `uv
-remove`.
+#### Installing geospatial_utils
 
-### Making it Your Own
+Activate the conda environment (`conda activate gis_utils`)
 
-This repo has a single package in the `./src/...` path called `mypackage` (creative I know). Change this to the name of your package and update it in:
+To install the geospatial utils package and any non-conda dependencies for software development purposes use the 
+following command. This installs an editable version of the repository and the development specific dependencies.
 
-* `docs/conf.py`
-* `src/**/*.py`
-* `tests/**/*.py`
-* `pyproject.toml`
 
-To make thing move a bit faster, use the script `./rename-package.sh` to rename all references of `mypackage` to whatever you like. For example:
-
-```console
-./rename-package.sh "acoolnewname"
+```commandline
+pip install -e .[dev]
 ```
 
-Will rename the package and all references to "acoolnewname"
+For all other use cases:
 
-After doing this it is recommended to also run:
 
-```console
-cd docs
-make apidoc
+```commandline
+pip install .
 ```
 
-To keep your documentation in sync with the package name. You may need to delete a file called `mypackage.rst` from `./docs/sources/...`
+#### Updating the environment
 
-### Deploying Docs to GitHub Pages
+To update the environment run
 
-If you want docs to be published to github pages automatically, go to your repo settings and enable docs from GitHub Actions and the workflows will do the rest.
-
-### Building Docs Locally
-
-The documentation is driven by [Sphinx](https://www.sphinx-doc.org/) an industry standard for documentation with a healthy userbase and lots of add-ons. It uses `sphinx-apidoc` to generate API documentation for the codebase from Python docstrings.
-
-To run `sphinx-apidoc` run:
-
-```console
-cd docs
-make apidoc
+```commandline
+conda env update -n gis_utils --file environment.yml
 ```
 
-This will populate `./docs/sources/...` with `*.rst` files for each Python module, which may be included into the documentation.
+### Linting
 
-Documentation can then be built locally by running `make html`, or found on the [GitHub Deployment](https://nerc-ceh.github.io/python-template).
+Linting uses ruff using the config in pyproject.toml
 
-### Run the Tests
+```
+ruff check --fix
+```
 
-To run the tests run:
+### Formatting
 
-```console
+Formatting uses ruff using the config in pyproject.toml which follows the default black settings.
+
+```
+ruff format .
+```
+
+
+### Pre commit hooks
+
+The linting, formatting and type checking can be called as a pre-commit hook. Run below to set them up.
+
+```
+pre-commit install
+```
+
+If you need to ignore the hook for a particular commit then use the `--no-verify` flag.
+
+## Run the Tests
+
+To run the tests, ensure the localstack docker container is running, and the virtual environment is activated. Then run:
+
+```commandline
 pytest
 ```
-
-### Automatic Versioning
-
-This codebase is set up using [autosemver](https://autosemver.readthedocs.io/en/latest/usage.html#) a tool that uses git commit history to calculate the package version. Each time you make a commit, it increments the patch version by 1. You can increment by:
-
-* Normal commit. Use for bugfixes and small updates
-    * Increments patch version: `x.x.5 -> x.x.6`
-* Commit starts with `* NEW:`. Use for new features
-    * Increments minor version `x.1.x -> x.2.x`
-* Commit starts with `* INCOMPATIBLE:`. Use for API breaking changes
-    * Increments major version `2.x.x -> 3.x.x`
-
-### Docker and the ECR
-
-The python code is packaged into a docker image and pushed to the AWS ECR. For the deployment to succeed you must:
-
-* Add 2 secrets to the GitHub Actions:
-    * AWS_REGION: \<our-region\>
-    * AWS_ROLE_ARN: \<the-IAM-role-used-to-deploy\>
-* Add a repository to the ECR with the same name as the GitHub repo
