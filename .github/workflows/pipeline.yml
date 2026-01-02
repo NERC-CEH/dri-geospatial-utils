@@ -11,7 +11,7 @@ jobs:
   test-python:
     uses: NERC-CEH/dri-cicd/.github/workflows/test-python.yml@main
     with:
-      use_uv: true
+      use_uv: false
 
   build-test-deploy-docker:
     needs: [test-python]
