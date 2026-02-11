@@ -1,13 +1,11 @@
 [build-system]
-requires = ["setuptools >= 61.0", "autosemver"]
+requires = ["setuptools >= 61.0,<81","autosemver"]
 
 [project]
 requires-python = ">=3.12"
 dependencies = [
     "autosemver",
-    # autosemver uses some deprecated setuptools APIs
-    # https://github.com/david-caro/python-autosemver/issues/56
-    "setuptools < 81",
+    "setuptools >= 61.0,<81",
     "pre-commit",
 
 ]

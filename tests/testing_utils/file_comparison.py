@@ -1,8 +1,9 @@
 from pathlib import Path
 
 import numpy as np
-from osgeo import gdal
+from osgeo import gdal, ogr
 
+from geospatial_utils.vector.vector_dataset import VectorDataset
 from tests.testing_utils.exceptions import ComparisonError
 
 
@@ -60,3 +61,40 @@ def compare_raster_bands(expected_raster_ds: gdal.Dataset, actual_raster_ds: gda
 
     if not np.isclose(expected_arr, actual_arr):
         raise ComparisonError(f"The data for raster band {band_index} does not that expected.")
+
+
+def compare_vector_files(expected_vector_path: str | Path, actual_vector_path: str | Path) -> None:
+    expected_ds = VectorDataset(expected_vector_path)
+    actual_ds = VectorDataset(actual_vector_path)
+
+    if expected_ds.fields != actual_ds.fields:
+        raise ComparisonError("The field definitions between actual and expected data do not match.")
+
+    if not expected_ds.srs.IsSame(actual_ds.srs):
+        raise ComparisonError("The spatial reference does not match that expected.")
+
+    compare_vector_layers(expected_ds.layer, actual_ds.layer)
+
+
+def compare_vector_layers(expected_layer: ogr.Layer, actual_layer: ogr.Layer) -> None:
+    field_names = [field.name for field in expected_layer.schema]
+
+    for expected_feature, actual_feature in zip(expected_layer, actual_layer):
+        expected_geometry = expected_feature.geometry()
+        actual_geometry = actual_feature.geometry()
+
+        # Due to potential rounding errors etc, it's possible that the geometries may differ very slightly. Therefore
+        # construct a geometry out the difference betwee
+        difference = expected_geometry.Difference(actual_geometry)
+        if difference.Area() > 0.001:
+            raise ComparisonError(f"The geometry for feature {expected_feature.GetFID()} does not match that expected.")
+
+        for field_name in field_names:
+            expected_field = expected_feature.GetField(field_name)
+            acutal_field = actual_feature.GetField(field_name)
+
+            if expected_field != acutal_field:
+                raise ComparisonError(
+                    f"The value for the field {field_name} for feature {expected_feature.GetFID()} does not match that "
+                    "expected."
+                )
