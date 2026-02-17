@@ -93,3 +93,25 @@ To run the tests, ensure the localstack docker container is running, and the vir
 ```commandline
 pytest
 ```
+
+## Using the command line
+
+Once the geospatial repo has been installed, this list of available commandline based tools can be viewed using the following command:
+
+```commandline
+python -m geospatial_utils --help
+```
+
+To run a specific tool (e.g. convert to cog), the name of the tool is appended onto the command. For example, the following command will display the help for the `convert_to_cog` command:
+
+
+```commandline
+python -m geospatial_utils convert_to_cog --help
+```
+
+### Developing tools for the command line
+
+Command line based geospatial tools can be found in geospatial_utils/tools. Within this folder is `template.py` which provides a foundation structure for the commandline tool. It is important to retain the `COMMAND` and `DESCRIPTION` constants, alongside structure of the `main()` function. By separating out the creation of the parser from the addition
+of the parser commands it allows the over-arching parser listing all available geospatial utilities to be constructed. 
+
+To register the new script to be accessible on the command line, import the whole module (e.g. `from geospatial_utils.tools import convert_to_cog`) into `geospatial_utils.tools.cli.main` and add it as a new entry within the `MODULES` list at the top of the file. This will automatically ensure it is included as an entry within the overall CLI parser. 

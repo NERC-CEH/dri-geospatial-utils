@@ -1,5 +1,7 @@
 import argparse
 
+COMMAND = "template_command"
+DESCRIPTION = "short string describing the script's functionality"
 
 def build_parser() -> argparse.ArgumentParser:
     """Construct the CLI."""
