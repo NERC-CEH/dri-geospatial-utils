@@ -3,6 +3,7 @@
 import argparse
 import logging
 from pathlib import Path
+from types import SimpleNamespace
 
 logger = logging.getLogger(__name__)
 
@@ -52,10 +53,16 @@ def main() -> None:
     parser = add_arguments(parser)
     args = parser.parse_args()
 
-    run(*args)
+    run_from_cli(args)
 
 
-def run(*args, **kwargs) -> None:
+def run_from_cli(args: SimpleNamespace) -> None:
+    """The entrypoint when running from the centralised CLI."""
+    # Call the main run function
+    run(raster_path=args.raster_path, raster_dir=args.raster_dir, output_dir=args.output_dir)
+
+
+def run(raster_path:str |  Path, raster_dir: str | Path, output_dir: str | Path) -> None:
     """The main run function."""
     logging.info("Converting to COG")
 

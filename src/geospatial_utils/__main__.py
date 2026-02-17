@@ -12,7 +12,7 @@ logging.basicConfig(
 def main(argv: list[str]) -> None:
     parser = construct_parser()
     args = parser.parse_args(argv)
-    args.run()
+    args.func(args)
 
 
 if __name__ == "__main__":
