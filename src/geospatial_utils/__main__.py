@@ -11,7 +11,8 @@ logging.basicConfig(
 
 def main(argv: list[str]) -> None:
     parser = construct_parser()
-    parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    args.run()
 
 
 if __name__ == "__main__":
