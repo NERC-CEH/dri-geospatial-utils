@@ -138,7 +138,7 @@ def run(raster_path: str | Path, raster_dir: str | Path, output_dir: str | Path,
 # --------------
 
 
-def reproject(raster_path, output_path, input_epsg=27700):
+def reproject(raster_path: str | Path, output_path: str | Path, input_epsg: int = 27700) -> None:
     # open raster and get the spatial reference
     ds = gdal.Open(raster_path)
     ds_srs = ds.GetSpatialRef()
@@ -147,7 +147,7 @@ def reproject(raster_path, output_path, input_epsg=27700):
     # import the EPSG and put it in the container.
     # if the EPSG isn't picked up, require user input.
 
-    if ds_srs == None:
+    if ds_srs is None:
         ds_srs = osr.SpatialReference()
         ds_srs.ImportFromEPSG(input_epsg)
 
@@ -178,9 +178,12 @@ def reproject(raster_path, output_path, input_epsg=27700):
 # ---------------
 
 
-# create the values to apply the colour ramp to. input the raster and path to colour template. Output path to colour ramp.txt
+# create the values to apply the colour ramp to. input the raster and path to colour template.
+# Output path to colour ramp.txt
 # build colour ramp
-def colour_ramp(input_raster_path, colourmap_template_path, output_colour_ramp_path):
+def colour_ramp(
+    input_raster_path: str | Path, colourmap_template_path: str | Path, output_colour_ramp_path: str | Path
+) -> None:
     ds = gdal.Open(input_raster_path)
     band = ds.GetRasterBand(1)
 
@@ -226,8 +229,9 @@ def colour_ramp(input_raster_path, colourmap_template_path, output_colour_ramp_p
 # ------------
 
 
-# apply colour relief to the reprojected raster, output is a temp colour tiff, using the output from building the colour ramp
-def apply_relief(reprojected_path, colour_ramp_path, colourised_path):
+# apply colour relief to the reprojected raster, output is a temp colour tiff, using the output from
+# building the colour ramp
+def apply_relief(reprojected_path: str | Path, colour_ramp_path: str | Path, colourised_path: str | Path) -> None:
     creation_options = ["TILED=YES", "COMPRESS=DEFLATE", "PREDICTOR=2", "ZLEVEL=9"]
     gdal.DEMProcessing(
         destName=colourised_path,
@@ -246,7 +250,7 @@ def apply_relief(reprojected_path, colour_ramp_path, colourised_path):
 # -----------
 
 
-def create_legend(colourmap_path, legend_path):
+def create_legend(colourmap_path: str | Path, legend_path: str | Path) -> None:
     # create a space to store the r,g b values
     legends = []
 
@@ -268,7 +272,7 @@ def create_legend(colourmap_path, legend_path):
 # ----------
 
 
-def cogification(colourised_path, cogified_path):
+def cogification(colourised_path: str | Path, cogified_path: str | Path) -> None:
     translate_options = gdal.TranslateOptions(
         format="COG",
         creationOptions=["COMPRESS=DEFLATE", "PREDICTOR=2", "OVERVIEWS=IGNORE_EXISTING", "OVERVIEW_COUNT=10"],
