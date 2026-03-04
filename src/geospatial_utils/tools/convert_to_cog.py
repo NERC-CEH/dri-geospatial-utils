@@ -77,60 +77,57 @@ def run_from_cli(args: SimpleNamespace) -> None:
     )
 
 
-def run(raster_path: str | Path, raster_dir: str | Path, output_dir: str | Path, colourmap_path: str | Path) -> None:
+def run(raster_path: str | Path = None, raster_dir: str | Path = None, output_dir: str | Path, colourmap_path: str | Path) -> None:
     """The main run function."""
     logging.info("Converting to COG")
 
     # create the output diectory if it doesn't already exist
     os.makedirs(output_dir, exist_ok=True)
 
-    # delete the temp folder if it already exists and make it again to clear it.
     with tempfile.TemporaryDirectory() as temp_dir:
-        raster_paths = [os.path.join(raster_dir, "NT12NE_50CM_DSM_PHASE3.tif")]
+        if raster_path is not None:
+            convert_single_raster_to_cog(
+                raster_path=raster_path, temp_dir=temp_dir, output_dir=output_dir, colourmap_path=colourmap_path
+            )
 
-        for raster_path in raster_paths:
-            # reproject
-            basename, ext = os.path.splitext(os.path.basename(raster_path))
-            # writing the output file name to give the function an output path to write to.
-            reprojected_path = os.path.join(temp_dir, f"{basename}_3857.tif")
-
-            print("reprojecting...")
-
-            reproject(raster_path, reprojected_path)
-
-            # build colour ramp
-
-            basename, ext = os.path.splitext(os.path.basename(reprojected_path))
-            output_colour_ramp_path = os.path.join(output_dir, f"{basename}_colourramp.txt")
-
-            print("building colour ramp")
-
-            colour_ramp(reprojected_path, colourmap_path, output_colour_ramp_path)
-
-            # apply relief to raster using colour ramp
-
-            basename, ext = os.path.splitext(os.path.basename(reprojected_path))
-            colourised_path = os.path.join(temp_dir, f"{basename}_colourised.tif")
-
-            print("applying colour relief")
-
-            apply_relief(reprojected_path, output_colour_ramp_path, colourised_path)
-
-            # create legend
-
-            legend_output_path = os.path.join(output_dir, f"{basename}_legend.json")
-            create_legend(output_colour_ramp_path, legend_output_path)
-
-            basename, ext = os.path.splitext(os.path.basename(colourised_path))
-            cogified_path = os.path.join(output_dir, f"{basename}_cogified.tif")
-
-            print("cogifyiing...")
-
-            cogification(colourised_path, cogified_path)
-
-            print("finished...")
+        else:
+            # Ensure the raster directory is a Path object
+            raster_dir = Path(raster_dir)
+            for raster_path in raster_path.glob("*.tif"):
+                logger.info(f"Converting raster {raster_path.stem} to COG")
+                convert_single_raster_to_cog(
+                    raster_path=raster_path, temp_dir=temp_dir, output_dir=output_dir, colourmap_path=colourmap_path
+                )
 
     logging.info("Finished")
+
+
+def convert_single_raster_to_cog(
+    raster_path: str | Path, temp_dir: str, output_dir: str | Path, colourmap_path: str | Path
+) -> None:
+    # Ensure the raster path and temp directory are pathlib.Path object to make file manipulation easier
+    raster_path = Path(raster_path)
+    temp_dir = Path(temp_dir)
+
+    logger.info("Reprojecting to EPSG 3857")
+    reprojected_path = temp_dir.joinpath(f"{raster_path.stem}_3857.tif")
+    reproject(raster_path, reprojected_path)
+
+    logger.info("Building colour ramp")
+    output_colour_ramp_path = temp_dir.joinpath(f"{raster_path.stem}_colourramp.txt")
+    colour_ramp(reprojected_path, colourmap_path, output_colour_ramp_path)
+
+    logger.info("Applying colour relief")
+    colourised_path = temp_dir.joinpath(f"{reprojected_path.stem}_3857.tif")
+    apply_relief(reprojected_path, output_colour_ramp_path, colourised_path)
+
+    logger.info("Creating the legend.")
+    legend_output_path = temp_dir.joinpath(f"{raster_path.stem}_legend.json")
+    create_legend(output_colour_ramp_path, legend_output_path)
+
+    logger.info("Converting to COG")
+    cogified_path =  temp_dir.joinpath(f"{colourised_path.stem}_3857.tif")
+    cogification(colourised_path, cogified_path)
 
 
 # --------------
@@ -178,12 +175,16 @@ def reproject(raster_path: str | Path, output_path: str | Path, input_epsg: int 
 # ---------------
 
 
-# create the values to apply the colour ramp to. input the raster and path to colour template.
-# Output path to colour ramp.txt
-# build colour ramp
+
 def colour_ramp(
     input_raster_path: str | Path, colourmap_template_path: str | Path, output_colour_ramp_path: str | Path
 ) -> None:
+    """
+    create the values to apply the colour ramp to. input the raster and path to colour template.
+    Output path to colour ramp.txt
+build colour ramp
+
+    """
     ds = gdal.Open(input_raster_path)
     band = ds.GetRasterBand(1)
 
@@ -220,8 +221,6 @@ def colour_ramp(
     # write the file to an output path.
     with open(output_colour_ramp_path, "w") as colourmap_file:
         colourmap_file.write("\n".join(output_colourmap_data))
-
-    print()
 
 
 # ------------
