@@ -1,6 +1,7 @@
 """Convert one or more rasters to a COG formatted raster, in EPSG 3857."""
 
 import argparse
+import glob
 import json
 import logging
 import os
@@ -52,6 +53,12 @@ def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         "--colourmap_path", required=True, type=Path, help=("Provide file path to a defined colour ramp text file.")
     )
 
+    parser.add_argument(
+        "--nodata_value",
+        required=False,
+        type=int,
+        help=("Provide a NoData Value if it is not defined or can't be detected."),
+    )
     return parser
 
 
@@ -86,11 +93,12 @@ def run(raster_path: str | Path, raster_dir: str | Path, output_dir: str | Path,
 
     # delete the temp folder if it already exists and make it again to clear it.
     with tempfile.TemporaryDirectory() as temp_dir:
-        raster_paths = [os.path.join(raster_dir, "NT12NE_50CM_DSM_PHASE3.tif")]
+        raster_paths = glob.glob(os.path.join(raster_dir, "*.tif"))
 
         for raster_path in raster_paths:
             # reproject
             basename, ext = os.path.splitext(os.path.basename(raster_path))
+
             # writing the output file name to give the function an output path to write to.
             reprojected_path = os.path.join(temp_dir, f"{basename}_3857.tif")
 
@@ -139,14 +147,15 @@ def run(raster_path: str | Path, raster_dir: str | Path, output_dir: str | Path,
 
 
 def reproject(raster_path: str | Path, output_path: str | Path, input_epsg: int = 27700) -> None:
+    """This function takes an input raster and writes a reprojected raster to the output path. https://gdal.org/en/stable/api/python/utilities.html
+    # for info on how to run the function osgeo.gdal.Warp(destNameOrDestDS, srcDSOrSrcDSTab, **kwargs)"""
+
     # open raster and get the spatial reference
     ds = gdal.Open(raster_path)
     ds_srs = ds.GetSpatialRef()
 
-    # if the spatial reference is None - data may be old and formatted differently, hard code the epsg.
     # import the EPSG and put it in the container.
     # if the EPSG isn't picked up, require user input.
-
     if ds_srs is None:
         ds_srs = osr.SpatialReference()
         ds_srs.ImportFromEPSG(input_epsg)
@@ -163,11 +172,10 @@ def reproject(raster_path: str | Path, output_path: str | Path, input_epsg: int 
         srcSRS=ds_srs, dstSRS=target_srs.ExportToWkt(), format="GTiff", creationOptions=creation_options
     )
 
-    # run the reprojection
-    # https://gdal.org/en/stable/api/python/utilities.html
-    # osgeo.gdal.Warp(destNameOrDestDS, srcDSOrSrcDSTab, **kwargs)
+    # Set the config options
     gdal.SetConfigOption("GTIFF_SRS_SOURCE", "EPSG")
-    # where the output goes first, the opened dataset
+
+    # run the reprojection
     gdal.Warp(output_path, ds, options=options)
 
     print("finish")
@@ -178,14 +186,22 @@ def reproject(raster_path: str | Path, output_path: str | Path, input_epsg: int 
 # ---------------
 
 
-# create the values to apply the colour ramp to. input the raster and path to colour template.
-# Output path to colour ramp.txt
-# build colour ramp
 def colour_ramp(
-    input_raster_path: str | Path, colourmap_template_path: str | Path, output_colour_ramp_path: str | Path
+    input_raster_path: str | Path,
+    colourmap_template_path: str | Path,
+    output_colour_ramp_path: str | Path,
 ) -> None:
+    """Create the values to apply the colour ramp to. input the raster and path to colour template. Output path to
+    colour ramp.txt build colour ramp"""
+
+    # Open input raster and get the nodata value from the elevation band.
     ds = gdal.Open(input_raster_path)
     band = ds.GetRasterBand(1)
+    nodata_value = band.GetNoDataValue()
+
+    # raise a ValueError if no NoData value is present in the raster.
+    if nodata_value is None:
+        raise ValueError(f"NoData value not found in {input_raster_path}")
 
     # get min and max of the raster to classify for colourisation.
     min_value, max_value = band.ComputeRasterMinMax(approx_ok=True)
@@ -195,33 +211,34 @@ def colour_ramp(
     with open(colourmap_template_path) as colourmap_file:
         colourmap_data = colourmap_file.readlines()
 
-    # calculate the interval from the raster value range e.g a break point
-    # will be at every 20 (colour_interval)
-    colour_interval = (max_value - min_value) / (len(colourmap_data) - 1)
+    # calculate the evenly spaced intervals from the raster value range using linspace.
+    # minus one because one entry in the no data row.
+    interval_values = np.linspace(min_value, max_value, len(colourmap_data) - 1)
 
-    # create the values for the entire range to assign the colours to
-    interval_values = np.around(np.arange(min_value, max_value, colour_interval), 0)
+    # truncate the interval values for easier reading.
+    interval_values = np.trunc(interval_values * 100) / 100
 
-    # store the output data with values from the colour ramp template and
-    # and the interval values.
-    # keep the first line from the template which has the no data value.
-    output_colourmap_data = [colourmap_data[0].strip()]
+    # store the interval values and the rgb values from the colour ramp template and
+    # replace the first no data line from the template.
+    _, red, green, blue = colourmap_data[0].strip().split()
 
-    # loop through each file simultaneously bug ignoring the no data value
+    no_data_row = f"{nodata_value} {red} {green} {blue} 0"
+
+    output_colourmap_data = [no_data_row]
+
+    # loop through each row simultaneously but ignoring the no data value
     # row in the template file so the colours match the intervals.
     for row, interval_value in zip(colourmap_data[1:], interval_values):
         _, red, green, blue = row.strip().split(" ")
 
         # create a new row of joined data to append to output data. Add the interval
         # value to the rgb value from the template into one new row.
-        new_row = " ".join([str(np.around(interval_value, 2)), red, green, blue])
-        output_colourmap_data.append(new_row)
+        new_rows = f"{interval_value} {red} {green} {blue}"
+        output_colourmap_data.append(new_rows)
 
     # write the file to an output path.
     with open(output_colour_ramp_path, "w") as colourmap_file:
         colourmap_file.write("\n".join(output_colourmap_data))
-
-    print()
 
 
 # ------------
@@ -229,20 +246,29 @@ def colour_ramp(
 # ------------
 
 
-# apply colour relief to the reprojected raster, output is a temp colour tiff, using the output from
-# building the colour ramp
-def apply_relief(reprojected_path: str | Path, colour_ramp_path: str | Path, colourised_path: str | Path) -> None:
+def apply_relief(input_raster_path: str | Path, colour_ramp_path: str | Path, colourised_path: str | Path) -> None:
+    """apply colour relief to the reprojected raster, output is a temp colour tiff, using the output from
+    building the colour ramp"""
+
+    # Open input raster and get the nodata value from the elevation band.
+    ds = gdal.Open(input_raster_path)
+    band = ds.GetRasterBand(1)
+    nodata_value = band.GetNoDataValue()
+
+    # raise a ValueError if no NoData value is present in the raster.
+    if nodata_value is None:
+        raise ValueError(f"NoData value not found in {input_raster_path}")
+
+    # Apply the color ramp, creating a RGBA raster.
     creation_options = ["TILED=YES", "COMPRESS=DEFLATE", "PREDICTOR=2", "ZLEVEL=9"]
     gdal.DEMProcessing(
         destName=colourised_path,
-        srcDS=gdal.Open(reprojected_path),
+        srcDS=gdal.Open(input_raster_path),
         colorFilename=colour_ramp_path,
         processing="color-relief",
         creationOptions=creation_options,
+        addAlpha=True,
     )
-
-    # store values from the colourmap generated where rgb values are from the Navia template
-    # and values are from the range of values in the raster.
 
 
 # -----------
