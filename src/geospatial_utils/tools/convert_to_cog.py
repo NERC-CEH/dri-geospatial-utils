@@ -62,6 +62,21 @@ def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         ),
     )
 
+    parser.add_argument(
+        "--colourmap_path", required=True, type=Path, help=("Provide file path to a defined colour ramp text file.")
+    )
+
+    input_group = parser.add_mutually_exclusive_group(required=True)
+    input_group.add_argument("--raster_path", type=Path, help="Path to the raster to be converted")
+    input_group.add_argument(
+        "--raster_dir",
+        type=Path,
+        help=(
+            "Path to the directory containing rasters to be converted. All .tif files found within this directory "
+            "will be processed."
+        ),
+    )
+
     return parser
 
 
