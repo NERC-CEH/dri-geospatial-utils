@@ -28,7 +28,7 @@ def reproject_raster(
         if input_epsg_code is None:
             raise ValueError("Please provide an input epsg code for the input raster.")
 
-        # Construct the input spatial reference usign the input_epsg_code parameter
+        # Construct the input spatial reference using the input_epsg_code parameter
         input_srs = osr.SpatialReference()
         input_srs.ImportFromEPSG(input_epsg_code)
 
@@ -39,9 +39,22 @@ def reproject_raster(
         logger.warning(f"The raster is already projected to EPSG: {output_epsg_code}")
         return input_path
 
+    # Get pixel size of input raster
+    input_gt = input_ds.GetGeoTransform()
+
+    pixel_width = input_gt[1]
+    pixel_height = input_gt[5]
+
     creation_options = ["TILED=YES", "COMPRESS=DEFLATE", "PREDICTOR=2", "ZLEVEL=9"]
 
-    warp_options = gdal.WarpOptions(dstSRS=output_srs, srcSRS=input_srs, creationOptions=creation_options)
+    warp_options = gdal.WarpOptions(
+        dstSRS=output_srs,
+        srcSRS=input_srs,
+        xRes=pixel_width,
+        yRes=abs(pixel_height),
+        resampleAlg="bilinear",
+        creationOptions=creation_options,
+    )
 
     gdal.Warp(str(output_path), input_ds, options=warp_options)
 
