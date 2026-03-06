@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 
 from osgeo import gdal, osr
+from geospatial_utils.raster.raster_dataset import RasterDataset
 
 logger = logging.getLogger(__name__)
 
@@ -18,11 +19,8 @@ def reproject_raster(
         epsg_code: EPSG code representing the output spatial reference to project the raster to,
 
     """
-    input_ds = gdal.Open(input_path)
-    if input_ds is None:
-        raise ValueError(f"Could not find {input_ds}. Please check it exists.")
-
-    input_srs = input_ds.GetSpatialRef()
+    input_ds = RasterDataset(input_path)
+    input_srs = input_ds.srs
 
     if input_srs is None:
         if input_epsg_code is None:
@@ -39,11 +37,8 @@ def reproject_raster(
         logger.warning(f"The raster is already projected to EPSG: {output_epsg_code}")
         return input_path
 
-    # Get pixel size of input raster
-    input_gt = input_ds.GetGeoTransform()
-
-    pixel_width = input_gt[1]
-    pixel_height = input_gt[5]
+    pixel_width = input_ds.geotransform.x_res
+    pixel_height = input_ds.geotransform.y_res
 
     creation_options = ["TILED=YES", "COMPRESS=DEFLATE", "PREDICTOR=2", "ZLEVEL=9"]
 
