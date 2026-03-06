@@ -1,11 +1,14 @@
+import logging
 from pathlib import Path
 
 from osgeo import gdal, osr
 
+logger = logging.getLogger(__name__)
+
 
 def reproject_raster(
     input_path: str | Path, output_path: str | Path, output_epsg_code: int, input_epsg_code: int = None
-) -> None:
+) -> Path:
     """
     Reproject a raster to the provided output EPSG Code
 
@@ -33,10 +36,13 @@ def reproject_raster(
     output_srs.ImportFromEPSG(output_epsg_code)
 
     if input_srs.IsSame(output_srs):
-        raise ValueError(f"The raster is already projected to EPSG: {output_epsg_code}")
+        logger.warning(f"The raster is already projected to EPSG: {output_epsg_code}")
+        return input_path
 
     creation_options = ["TILED=YES", "COMPRESS=DEFLATE", "PREDICTOR=2", "ZLEVEL=9"]
 
     warp_options = gdal.WarpOptions(dstSRS=output_srs, srcSRS=input_srs, creationOptions=creation_options)
 
     gdal.Warp(str(output_path), input_ds, options=warp_options)
+
+    return output_path
