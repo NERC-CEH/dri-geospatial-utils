@@ -25,7 +25,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        "--output_dir",
+        "--output_path",
         required=True,
         type=Path,
         help=(
@@ -53,19 +53,17 @@ def run_from_cli(args: SimpleNamespace) -> None:
     # Call the main run function
     run(
         gauging_input_path=args.gauging_input_path,
-        output_path=args.output_dir,
+        output_path=args.output_path,
     )
 
 
-gauging_input_path = Path("/home/amber-barr/temp/Chess Gaugings.csv")
+# gauging_input_path = Path("/home/amber-barr/temp/Chess Gaugings.csv")
 
-output_path = Path("/home/amber-barr/temp/chess_gaugings.geojson")
+# output_path = Path("/home/amber-barr/temp/chess_gaugings.geojson")
 
 
 # open the csv of gaugings summaries and store contents as gaugings to close the file
-def run(
-    gauging_input_path: Path,
-) -> None:
+def run(gauging_input_path: Path, output_path: Path) -> None:
     with open(gauging_input_path) as input_file:
         gaugings = input_file.readlines()
 
@@ -103,9 +101,11 @@ def run(
         if "Period of record" in row_key:
             row_key, row_value = row_key.split(":", 1)
             start_date, end_date = row_value.strip().split("to")
-            # start_date_strp = datetime.strptime(start_date.strip(), "%d/%m/%Y %H:%M:%S")
-            # end_date_strp = datetime.strptime(end_date.strip(), "%d/%m/%Y %H:%M:%S")
-            row_value = (start_date, end_date)
+            station_chunk["start_date"] = datetime.strptime(start_date.strip(), "%d/%m/%Y %H:%M:%S").strftime(
+                "%d/%m/%Y"
+            )
+            station_chunk["end_date"] = datetime.strptime(end_date.strip(), "%d/%m/%Y %H:%M:%S").strftime("%d/%m/%Y")
+            continue
 
         # if row contains "", create column headers and an empty list for data rows.
         # switch is_data flag to True
@@ -141,12 +141,14 @@ def run(
             "station_number": gauging.get("Station number"),
             "easting": float(gauging["Easting"]),
             "northing": float(gauging["Northing"]),
-            "start_date": datetime(gauging["start_date"]),
-            "end_date": datetime(gauging["end_date"]),
+            "start_date": gauging["start_date"],
+            "end_date": gauging["end_date"],
         }
 
         feature = geojson.Feature(geometry=geometry, properties=meta_properties)
         metadata_features.append(feature)
+
+    print("metadata created")
 
     # write to file.
     with open(str(output_path), "w") as fout:
@@ -165,6 +167,8 @@ def run(
         station_df = station.get("df")
         if station_df is not None:
             station_df.to_csv(station_outpath, header=True, index=False)
+
+    print("finished")
 
 
 if __name__ == "__main__":
