@@ -57,11 +57,6 @@ def run_from_cli(args: SimpleNamespace) -> None:
     )
 
 
-# gauging_input_path = Path("/home/amber-barr/temp/Chess Gaugings.csv")
-
-# output_path = Path("/home/amber-barr/temp/chess_gaugings.geojson")
-
-
 # open the csv of gaugings summaries and store contents as gaugings to close the file
 def run(gauging_input_path: Path, output_path: Path) -> None:
     with open(gauging_input_path) as input_file:
