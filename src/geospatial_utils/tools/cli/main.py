@@ -1,9 +1,9 @@
 import argparse
 
-from geospatial_utils.tools import convert_to_cog
+from geospatial_utils.tools import convert_to_cog, reproject_raster
 from geospatial_utils.tools.fdri import chess_gaugings
 
-MODULES = [convert_to_cog, chess_gaugings]
+MODULES = [convert_to_cog, reproject_raster, chess_gaugings]
 
 
 def construct_parser() -> argparse.Parser:
