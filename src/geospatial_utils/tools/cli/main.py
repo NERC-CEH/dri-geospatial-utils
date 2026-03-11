@@ -1,10 +1,9 @@
 import argparse
 
-from geospatial_utils.tools import convert_to_cog
+from geospatial_utils.tools import convert_to_cog, reproject_raster
 
-MODULES = [
-    convert_to_cog
-]
+MODULES = [convert_to_cog, reproject_raster]
+
 
 def construct_parser() -> argparse.Parser:
     parser = argparse.ArgumentParser(prog="Geospatial Utilities")
