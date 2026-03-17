@@ -6,13 +6,24 @@ import os
 from pathlib import Path
 from types import SimpleNamespace
 
-import geojson
+import geopandas as gpd
 import pandas as pd
 
 logger = logging.getLogger(__name__)
 
 COMMAND = "obs_fdri_to_geojson"
 DESCRIPTION = "Convert gauging csv files into geojson to store metadata."
+
+# create a mapping to create consistant column names in all fdri observatory csv files.
+POSSIBLE_NAME_KEY = {
+    "Start_date": ["start_Date", "Data Start", "data_start", "Data_start", "start_date", "oldest_survey"],
+    "End_date": ["Data End", "Data_end", "newest_survey"],
+    "Site_ID": ["AWS_ID", "Site ID", "Station_number", "SiteID"],
+    "Altitude": ["altitude", "Altitude_m"],
+    "Name": ["AWS_name", "Site Name", "SiteName", "AWS_Name"],
+    "Latitude": ["lat", "latitude"],
+    "Longitude": ["lon", "longitude"],
+}
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
@@ -68,7 +79,7 @@ def run(output_geojson_dir: str | Path, input_csv_path: str | Path = None, input
     else:
         input_csv_dir = Path(input_csv_dir)
 
-        for input_csv_path in input_csv_dir.glob("*.csv"):
+        for input_csv_path in input_csv_dir.rglob("*.csv"):
             logger.info(f"Converting {input_csv_path.name} to geojson")
 
             csv_to_geojson(input_csv_path=input_csv_path, output_geojson_dir=output_geojson_dir)
@@ -90,22 +101,11 @@ def csv_to_geojson(input_csv_path: str | Path, output_geojson_dir: str | Path) -
     # normalise columns first
     df.columns = df.columns.str.strip()
 
-    # create a mapping to create consistant column names in all fdri observatory csv files.
-    possible_name_key = {
-        "Start_date": ["start_Date", "Data Start", "data_start", "Data_start", "start_date", "oldest_survey"],
-        "End_date": ["Data End", "Data_end", "newest_survey"],
-        "Site_ID": ["AWS_ID", "Site ID", "Station_number", "SiteID"],
-        "Altitude": ["altitude", "Altitude_m"],
-        "Name": ["AWS_name", "Site Name", "SiteName", "AWS_Name"],
-        "Latitude": ["lat", "latitude"],
-        "Longitude": ["lon", "longitude"],
-    }
-
     # create an empty dictionary to store standardised column headers.
     resolved_columns = {}
 
     # check for each alias name and store the corresponding standard name.
-    for standard_name, aliases in possible_name_key.items():
+    for standard_name, aliases in POSSIBLE_NAME_KEY.items():
         for alias in aliases:
             if alias in df.columns:
                 resolved_columns[alias] = standard_name
@@ -114,28 +114,17 @@ def csv_to_geojson(input_csv_path: str | Path, output_geojson_dir: str | Path) -
     # rename the column headers to the newly matched ones.
     df = df.rename(columns=resolved_columns)
 
-    # store features to turn into geojson
-    metadata_features = []
+    # keep columns that have been mapped
+    cols_to_keep = list(set(df.columns).intersection(POSSIBLE_NAME_KEY.keys()))
 
-    # iterate through all the rows (ignoring index) in the csv and store the Point geometry from lat and lon.
-    for _, row in df.iterrows():
-        lon, lat = (float(row["Longitude"]), float(row["Latitude"]))
-        geometry = geojson.Point((lon, lat))
+    # convert to geodataframe
+    geo_df = gpd.GeoDataFrame(
+        df(cols_to_keep), geometry=gpd.points_from_xy(df["Longitude"], df["Latitude"]), crs="EPSG:4326"
+    )
 
-        # prepare properties
-        meta_properties = {col: row[col] for col in possible_name_key if col in df.columns and pd.notnull(row[col])}
-
-        # create geojson features
-        feature = geojson.Feature(geometry=geometry, properties=meta_properties)
-        metadata_features.append(feature)
-
-    # output path
     output_geojson_path = output_geojson_dir / f"{input_csv_path.stem}.geojson"
 
-    # write out to geojson
-    with open(output_geojson_path, "w", encoding="utf-8") as fout:
-        feature_collection = geojson.FeatureCollection(metadata_features)
-        geojson.dump(feature_collection, fout)
+    geo_df.to_file(output_geojson_path, driver="GeoJSON")
 
     print("finished")
 
