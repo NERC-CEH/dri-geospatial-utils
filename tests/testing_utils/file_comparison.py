@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 from osgeo import gdal, ogr
 
+from geospatial_utils.vector.vector_dataset import VectorDataset
 from tests.testing_utils.exceptions import ComparisonError
 
 
@@ -62,36 +63,7 @@ def compare_raster_bands(expected_raster_ds: gdal.Dataset, actual_raster_ds: gda
         raise ComparisonError(f"The data for raster band {band_index} does not that expected.")
 
 
-def compare_vector_files(expected_vector_path: str | Path, actual_vector_path: str | Path) -> None:
-    """
-    Compare two vector files (e.g. geojson or shapefile).
-
-    Args:
-        expected_vector_path: The path to the vector file containing the expected features and field values.
-        actual_vector_path: The path to the vector file containing data to compare against the expected output.
-
-    """
-    expected_ds = ogr.Open(str(expected_vector_path))
-    actual_ds = ogr.Open(str(actual_vector_path))
-
-    compare_vector_features(expected_ds=expected_ds, actual_ds=actual_ds)
-
-
 def compare_vector_features(expected_ds: gdal.Dataset, actual_ds: gdal.Dataset) -> None:
-    """
-    Compare individual vector features.
-    For every feature within the first layer of the actual dataset, check the geometry and field values match those
-    of the expected vector dataset.
-
-    Args:
-        expected_ds: Opened gdal.Dataset instance of the expected vector data to compare against.
-        actual_ds: Opened gdal.Dataset instance of the vector data to compare against that expected.
-
-    Raises:
-        ComparisonError: The feature geometry does not match.
-        ComparisonError: The field value does not match for a feature.
-
-    """
     actual_layer = actual_ds.GetLayer()
     expected_layer = expected_ds.GetLayer()
 
@@ -109,4 +81,63 @@ def compare_vector_features(expected_ds: gdal.Dataset, actual_ds: gdal.Dataset) 
             if expected_field != actual_field:
                 raise ComparisonError(
                     f"The value for field {field.name} has a value of {actual_field} instead of {expected_field}."
+                )
+
+
+def compare_vector_files(expected_vector_path: str | Path, actual_vector_path: str | Path) -> None:
+    """
+    Compare two vector files (e.g. geojson or shapefile).
+
+    Args:
+        expected_vector_path: The path to the vector file containing the expected features and field values.
+        actual_vector_path: The path to the vector file containing data to compare against the expected output.
+
+    """
+    expected_ds = VectorDataset(expected_vector_path)
+    actual_ds = VectorDataset(actual_vector_path)
+
+    if expected_ds.fields != actual_ds.fields:
+        raise ComparisonError("The field definitions between actual and expected data do not match.")
+
+    if not expected_ds.srs.IsSame(actual_ds.srs):
+        raise ComparisonError("The spatial reference does not match that expected.")
+
+    compare_vector_layers(expected_ds.layer, actual_ds.layer)
+
+
+def compare_vector_layers(expected_layer: ogr.Layer, actual_layer: ogr.Layer) -> None:
+    """
+    Compare individual vector features.
+    For every feature within the first layer of the actual dataset, check the geometry and field values match those
+    of the expected vector dataset.
+
+    Args:
+        expected_ds: Opened gdal.Dataset instance of the expected vector data to compare against.
+        actual_ds: Opened gdal.Dataset instance of the vector data to compare against that expected.
+
+    Raises:
+        ComparisonError: The feature geometry does not match.
+        ComparisonError: The field value does not match for a feature.
+
+    """
+    field_names = [field.name for field in expected_layer.schema]
+
+    for expected_feature, actual_feature in zip(expected_layer, actual_layer):
+        expected_geometry = expected_feature.geometry()
+        actual_geometry = actual_feature.geometry()
+
+        # Due to potential rounding errors etc, it's possible that the geometries may differ very slightly. Therefore
+        # construct a geometry out the difference betwee
+        difference = expected_geometry.Difference(actual_geometry)
+        if difference.Area() > 0.001:
+            raise ComparisonError(f"The geometry for feature {expected_feature.GetFID()} does not match that expected.")
+
+        for field_name in field_names:
+            expected_field = expected_feature.GetField(field_name)
+            acutal_field = actual_feature.GetField(field_name)
+
+            if expected_field != acutal_field:
+                raise ComparisonError(
+                    f"The value for the field {field_name} for feature {expected_feature.GetFID()} does not match that "
+                    "expected."
                 )
