@@ -51,7 +51,7 @@ class VectorDataset:
         Args:
             output_path: Path to save the reprojected dataset to.
             target_epsg: EPSG code to reproject to. If this isn't used, then target_srs must be provided.
-            target_srs: osr.SpatialReference object to use to reproject the dataset to. If this isn't used then 
+            target_srs: osr.SpatialReference object to use to reproject the dataset to. If this isn't used then
                 target_epsg must be provided.
             swap_xy: Whether to swap the xy coordinate order. This is sometimes required when converting between WGS84
                 and other coordinate systems. Defaults to False.

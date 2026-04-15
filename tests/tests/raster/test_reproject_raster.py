@@ -18,10 +18,10 @@ class TestReprojectRaster:
 
         compare_raster_files(expected_raster_path=expected_path, actual_raster_path=actual_path)
 
-    def test_raster_already_in_3857(self, input_dir: Path, working_dir: Path) -> None:
+    def test_raster_already_in_3857(self, input_dir: Path, working_dir: Path, caplog: pytest.LogCaptureFixture) -> None:
         """Test an error is raised when the EPSG code matches that of the input raster."""
         input_path = input_dir.joinpath("raster", "test_raster_3857.tif")
         output_path = working_dir.joinpath("output.tif")
 
-        with pytest.raises(ValueError, match="The raster is already projected to EPSG: 3857"):
-            reproject_raster(input_path=input_path, output_path=output_path, output_epsg_code=3857)
+        reproject_raster(input_path=input_path, output_path=output_path, output_epsg_code=3857)
+        assert "The raster is already projected to EPSG: 3857" in caplog.text
