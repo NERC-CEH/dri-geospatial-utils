@@ -63,7 +63,36 @@ def compare_raster_bands(expected_raster_ds: gdal.Dataset, actual_raster_ds: gda
         raise ComparisonError(f"The data for raster band {band_index} does not that expected.")
 
 
+def compare_vector_features(expected_ds: gdal.Dataset, actual_ds: gdal.Dataset) -> None:
+    actual_layer = actual_ds.GetLayer()
+    expected_layer = expected_ds.GetLayer()
+
+    for expected_feature in expected_layer:
+        expected_feature_id = expected_feature.GetFID()
+        actual_feature = actual_layer.GetFeature(expected_feature_id)
+
+        if not expected_feature.geometry().Equals(actual_feature.geometry()):
+            raise ComparisonError(f"The geometry for feature {expected_feature_id} does not match that expected.")
+
+        for field in expected_layer.schema:
+            expected_field = expected_feature.GetField(field.name)
+            actual_field = actual_feature.GetField(field.name)
+
+            if expected_field != actual_field:
+                raise ComparisonError(
+                    f"The value for field {field.name} has a value of {actual_field} instead of {expected_field}."
+                )
+
+
 def compare_vector_files(expected_vector_path: str | Path, actual_vector_path: str | Path) -> None:
+    """
+    Compare two vector files (e.g. geojson or shapefile).
+
+    Args:
+        expected_vector_path: The path to the vector file containing the expected features and field values.
+        actual_vector_path: The path to the vector file containing data to compare against the expected output.
+
+    """
     expected_ds = VectorDataset(expected_vector_path)
     actual_ds = VectorDataset(actual_vector_path)
 
@@ -77,6 +106,20 @@ def compare_vector_files(expected_vector_path: str | Path, actual_vector_path: s
 
 
 def compare_vector_layers(expected_layer: ogr.Layer, actual_layer: ogr.Layer) -> None:
+    """
+    Compare individual vector features.
+    For every feature within the first layer of the actual dataset, check the geometry and field values match those
+    of the expected vector dataset.
+
+    Args:
+        expected_ds: Opened gdal.Dataset instance of the expected vector data to compare against.
+        actual_ds: Opened gdal.Dataset instance of the vector data to compare against that expected.
+
+    Raises:
+        ComparisonError: The feature geometry does not match.
+        ComparisonError: The field value does not match for a feature.
+
+    """
     field_names = [field.name for field in expected_layer.schema]
 
     for expected_feature, actual_feature in zip(expected_layer, actual_layer):
