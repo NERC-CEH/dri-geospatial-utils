@@ -7,7 +7,7 @@ from tests.testing_utils.file_comparison import compare_vector_files
 class TestRasterBoundary:
     def test_raster_boundary(self, input_dir: Path, output_dir: Path, working_dir: Path) -> None:
         """Check the raster boundary is produced correctly."""
-        input_path = input_dir.joinpath("test_raster_3857.tif")
+        input_path = input_dir.joinpath("raster", "test_raster_3857.tif")
         output_path = working_dir.joinpath("footprint.geojson")
 
         expected_path = output_dir.joinpath("raster", "raster_boundary", "footprint.geojson")
