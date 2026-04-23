@@ -16,13 +16,14 @@ DESCRIPTION = "Convert gauging csv files into geojson to store metadata."
 
 # create a mapping to create consistant column names in all fdri observatory csv files.
 POSSIBLE_NAME_KEY = {
-    "Start_date": ["start_Date", "Data Start", "data_start", "Data_start", "start_date", "oldest_survey"],
-    "End_date": ["Data End", "Data_end", "newest_survey"],
-    "Site_ID": ["AWS_ID", "Site ID", "Station_number", "SiteID"],
-    "Altitude": ["altitude", "Altitude_m"],
-    "Name": ["AWS_name", "Site Name", "SiteName", "AWS_Name"],
-    "Latitude": ["lat", "latitude"],
-    "Longitude": ["lon", "longitude"],
+    "Start_date": ["start_Date", "Data Start", "data_start", "Data_start", "start_date", "oldest_survey", "TUBE_START"],
+    "End_date": ["Data End", "Data_end", "newest_survey", "end_date", "TUBE_END_D"],
+    "Site_ID": ["AWS_ID", "Site ID", "Station_number", "SiteID", "TUBE_ID"],
+    "Altitude": ["altitude", "Altitude_m", "ALTITUDE"],
+    "Name": ["AWS_name", "Site Name", "SiteName", "AWS_Name", "SITE_NAME"],
+    "Latitude": ["lat", "latitude", "LATITUDE"],
+    "Longitude": ["lon", "longitude", "LONGITUDE"],
+    "Instrument": ["instrument"],
 }
 
 
@@ -119,7 +120,7 @@ def csv_to_geojson(input_csv_path: str | Path, output_geojson_dir: str | Path) -
 
     # convert to geodataframe
     geo_df = gpd.GeoDataFrame(
-        df(cols_to_keep), geometry=gpd.points_from_xy(df["Longitude"], df["Latitude"]), crs="EPSG:4326"
+        df[cols_to_keep], geometry=gpd.points_from_xy(df["Longitude"], df["Latitude"]), crs="EPSG:4326"
     )
 
     output_geojson_path = output_geojson_dir / f"{input_csv_path.stem}.geojson"
