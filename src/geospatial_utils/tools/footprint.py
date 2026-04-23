@@ -1,6 +1,6 @@
 import argparse
 import logging
-from osgeo import gdal
+from osgeo import gdal, ogr
 from pathlib import Path
 import subprocess
 from shapely.geometry import shape, mapping
@@ -10,10 +10,11 @@ import numpy as np
 from geospatial_utils.raster.raster_dataset import RasterDataset
 from geospatial_utils.vector.io import (
     create_vector_dataset,
-    create_raster_dataset_from_template,
     write_feature_to_output_layer,
 )
+from geospatial_utils.raster.io import create_raster_dataset_from_template
 from geospatial_utils.vector.vector_dataset import VectorDataset
+from geospatial_utils.vector.types import Field
 
 """logger = logging.getLogger(__name__)
 
@@ -68,7 +69,7 @@ raster_path = Path("/home/amber-barr/LIDAR_data/output/NT12SW_50CM_DSM_PHASE3_38
 output_dir = Path("/home/amber-barr/LIDAR_data/output/footprints")
 simplified_dir = Path("/home/amber-barr/LIDAR_data/output/footprints/simplfiied")
 binary_file = Path("/home/amber-barr/LIDAR_data/Tweed_SEPA/NT12SW_binary.tif")
-polygonised_path = Path("/home/amber-barr/LIDAR_data/Tweed_SEPA/NT12SW_polygonised.tif")
+polygonised_path = Path("/home/amber-barr/LIDAR_data/Tweed_SEPA/NT12SW_polygonised.shp")
 
 output_dir.mkdir(parents=True, exist_ok=True)
 simplified_dir.mkdir(parents=True, exist_ok=True)
@@ -85,22 +86,27 @@ def main(raster_path, output_dir):
 
     mask_array(raster_path, binary_path)
     polygonise(binary_path, polygonised_path)
-    dissolve_polygons(polygonised_path, dissolved_path)
-    simplify_and_buffer(dissolved_path, simplified_path)
+    # dissolve_polygons(polygonised_path, dissolved_path)
+    simplify_and_buffer(polygonised_path, simplified_path)
 
     print("finished")
 
 
 # Create a binary mask array using nodata and valid data pixels.
-def mask_array(raster_path, binary_file):
+def mask_array(raster_path, output_path):
     raster_dataset = RasterDataset(raster_path)
 
     # create new dataset to write the mask array to. Use create raster dataset from template in main. Get the first abnd
     # set the nodata value to 0.
-    new_dataset = create_raster_dataset_from_template(binary_file)
+    output_dataset = create_raster_dataset_from_template(
+        output_path, template_raster_path=raster_path, num_bands=1, output_dtype=gdal.GDT_Byte
+    )
+    output_band = output_dataset.GetRasterBand(1)
+    output_band.SetNoDataValue(0)
+
+    raster_band = raster_dataset.ds.GetRasterBand(1)
 
     for x_offset, y_offset, x_size, y_size in raster_dataset.block_iterator():
-        raster_band = raster_dataset.ds.GetRasterBand(1)
         array = raster_band.ReadAsArray(x_offset, y_offset, x_size, y_size)
 
         # binary mask
@@ -114,7 +120,9 @@ def mask_array(raster_path, binary_file):
 
         array[mask] = 0
         array[~mask] = 1
-    # add write array
+
+        # add write array
+        output_band.WriteArray(array, xoff=x_offset, yoff=y_offset)
 
 
 # polygonise the mask array raster band into a polygon.
@@ -131,7 +139,7 @@ def polygonise(binary_file, polygonsied_path):
     output_ds = None
 
 
-# Dissolve into one polygon
+# Dissolve into one polygon create empty geometry collection then add to it
 def dissolve_polygons(polygonised_path, dissolved_output_path):
     subprocess.run(
         [
@@ -150,12 +158,12 @@ def dissolve_polygons(polygonised_path, dissolved_output_path):
 
 
 # Simplify polygon to reduce vertices
-def simplify_and_buffer(dissolved):
-    dissolved_vector = VectorDataset(dissolved)
+def simplify_and_buffer(input_path, output_path):
+    dissolved_vector = VectorDataset(input_path)
 
     output_ds, output_layer = create_vector_dataset(
-        output_path="/home/amber-barr/LIDAR_data/Tweed_SEPA/NT12SW_boundary.shp",
-        layer_name="NT12SW_boundary",
+        output_path=output_path,
+        layer_name=output_path.stem,
         srs=dissolved_vector.srs,
     )
     # compare to test code
@@ -175,6 +183,27 @@ def simplify_and_buffer(dissolved):
 
         output_ds.SyncToDisk()
 
+    # template_ds = ogr.Open(input_path)
+    # template_layer = template_ds.GetLayer()
+    # output_srs = template_ds.GetSpatialRef()
+
+    # output_ds, output_layer = create_vector_dataset(
+    #         output_path=output_path,
+    #         layer_name="test",
+    #         srs=output_srs,
+    #         fields=[Field(field.name, field.type) for field in template_layer.schema],
+    # )
+
+    # for feature in template_layer:
+    #     write_feature_to_output_layer(
+    #         output_layer=output_layer,
+    #         output_geometry=feature.geometry(),
+    #         feature_to_copy=feature,
+    #         fields_to_transfer=[],
+    #     )
+
+    #    output_ds.SyncToDisk()
+
 
 if __name__ == "__main__":
-    main(raster_path)
+    main(raster_path, output_dir)
