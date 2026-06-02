@@ -79,7 +79,9 @@ def run_from_cli(args: SimpleNamespace) -> None:
     )
 
 
-def run(output_dir: str | Path, raster_path: str | Path = None, raster_dir: str | Path = None) -> None:
+def run(
+    output_dir: str | Path, raster_path: str | Path = None, raster_dir: str | Path = None
+) -> None:
     # create the output directory if it doesn't already exist
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -147,7 +149,6 @@ def mask_array(raster_path, output_path):
         # add write array
         output_band.WriteArray(array, xoff=x_offset, yoff=y_offset)
 
-
 # polygonise the mask array raster band into a polygon.
 def polygonise(binary_file, polygonsied_path):
     print("polygonising")
@@ -162,24 +163,9 @@ def polygonise(binary_file, polygonsied_path):
 
     print("polygonised")
 
-
-"""def dissolve_polygons(polygonised_path, dissolved_output_path):
-    # read in file with geopandas open function to cover input file-like objects e.g geojson
-    print("dissolving")
-    path_object = pathlib.Path(polygonised_path)
-    ds = gpd.read_file(path_object)
-
-    union = ds.union_all()
-
-    out_gdf = gpd.GeoDataFrame(geometry=[union], crs=ds.crs)
-
-    # esri shapefle as the driver is the default
-    out_gdf.to_file(dissolved_output_path)
-    print("dissolved")"""
-
-
 # Dissolve into one polygon create empty geometry collection then add to it
 def dissolve_polygons(polygonised_path, dissolved_output_path):
+
     # open shapefile and get layer
     ds = ogr.Open(polygonised_path)
     layer = ds.GetLayer()
@@ -192,34 +178,30 @@ def dissolve_polygons(polygonised_path, dissolved_output_path):
         geometry = feature.geometry()
         geometry_type = geometry.GetGeometryName()
 
-        if geometry_type == "MULTIPOLYGON":
+        if geometry_type == 'MULTIPOLYGON':
             for subgeom in geometry:
                 multipolygon.AddGeometry(subgeom)
 
-        elif geometry_type == "POLYGON":
+        elif geometry_type == 'POLYGON':
             multipolygon.AddGeometry(geometry)
 
         else:
             continue
-    # unaryunion
+    #unaryunion
 
     print()
 
     # create output dataset
     output_ds, output_layer = create_vector_dataset(
-        output_path=dissolved_output_path,
-        layer_name=Path(dissolved_path).stem,
-        srs=layer.GetSpatialRef(),
-        geom_type=ogr.wkbMultiPolygon,
+    output_path=dissolved_output_path, layer_name=Path(dissolved_path).stem, srs=layer.GetSpatialRef(), geom_type=ogr.wkbMultiPolygon
     )
 
     # Write features to file
     write_feature_to_output_layer(
-        output_layer=output_layer,
-        output_geometry=merged,
-        feature_to_copy=feature,
+    output_layer=output_layer,
+    output_geometry=merged,
+    feature_to_copy=feature,
     )
-
 
 # Simplify polygon to reduce vertices
 def simplify_and_buffer(input_path, output_path):
