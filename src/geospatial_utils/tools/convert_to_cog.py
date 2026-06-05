@@ -11,6 +11,7 @@ from types import SimpleNamespace
 import numpy as np
 from osgeo import gdal, osr
 
+from geospatial_utils.raster.raster_dataset import RasterDataset
 from geospatial_utils.raster.reprojection import reproject_raster
 
 logger = logging.getLogger(__name__)
@@ -341,6 +342,12 @@ def apply_colour_relief(
         creationOptions=creation_options,
     )
 
+    colourised_ds = RasterDataset(colourised_path)
+
+    for band_number in range(1, colourised_ds.ds.RasterCount, 1):
+        band = colourised_ds.ds.GetRasterBand(band_number)
+        band.SetNoDataValue(0)
+
 
 def create_legend(colourmap_path: str | Path, legend_path: str | Path) -> None:
     """Creates a json file containing the legend information for the colourised raster.
@@ -352,10 +359,20 @@ def create_legend(colourmap_path: str | Path, legend_path: str | Path) -> None:
 
     [
         {
-            "value": float (minimum raster value for the bound)
-            "colour": [red, green, blue] (0-255 values for red, green and blue respectively)
-        }
-    ]
+        "type": "range",
+        "values": [
+        {
+            "min": {
+                "label": float (minimum raster value for the range,
+                "colour": [red, green, blue] (0-255 values for red, green and blue respectively)
+                   },
+            "max": {
+                "label": float (max raster value for the range )
+                "colour": [14, 126, 228]
+                }
+        ]}
+    }
+
 
     """
     # create a space to store the r,g b values
@@ -364,17 +381,29 @@ def create_legend(colourmap_path: str | Path, legend_path: str | Path) -> None:
     with open(colourmap_path) as fin:
         colour_ramp = fin.readlines()
 
-        for row in colour_ramp[1:]:
+        # remove first row as is represents nodata
+        colour_ramp = colour_ramp[1:]
+
+        for row_index, row in enumerate(colour_ramp):
             # Each row is represented as a space separated list, with "value red green blue" and an optional "alpha"
             # value. In order to accomodate both formats, split the row into it's individual components, then extract
             # out the first 4 as the alpha value isn't needed for the legend.
-            row_components = row.strip().split(" ")
-            value, r, g, b = row_components[:4]
 
-            legends.append({"value": float(value), "colour": [int(r), int(g), int(b)]})
+            # check if at the end of list
+            if row_index + 1 >= len(colour_ramp):
+                break
+
+            legends.append({"min": create_legend_entry(row), "max": create_legend_entry(colour_ramp[row_index + 1])})
 
     with open(legend_path, "w") as fout:
         json.dump(legends, fout, indent=2)
+
+
+def create_legend_entry(row: str):
+    row_components = row.strip().split(" ")
+    value, r, g, b = row_components[:4]
+
+    return {"label": value, "colour": [r, g, b]}
 
 
 def convert_to_cog(raster_path: str | Path, output_path: str | Path) -> None:
