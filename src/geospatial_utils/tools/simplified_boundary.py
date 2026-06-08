@@ -79,9 +79,7 @@ def run_from_cli(args: SimpleNamespace) -> None:
     )
 
 
-def run(
-    output_dir: str | Path, raster_path: str | Path = None, raster_dir: str | Path = None
-) -> None:
+def run(output_dir: str | Path, raster_path: str | Path = None, raster_dir: str | Path = None) -> None:
     # create the output directory if it doesn't already exist
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -102,17 +100,18 @@ def run(
 # extension tasks: turn into CLI script
 # try and write some tests
 # check for any other values apart from 0 and 1 in the binary file
+
+
 def raster_to_footprint(raster_path, output_dir):
     binary_path = output_dir / "binary.tif"
     polygonised_path = output_dir / "polygonised.shp"
-    dissolved_path = output_dir / "dissolved.shp"
     simplified_path = output_dir / "boundary.shp"
 
     mask_array(raster_path, binary_path)
     polygonise(binary_path, polygonised_path)
-    dissolve_polygons(polygonised_path, dissolved_path)
-    simplify_and_buffer(dissolved_path, simplified_path)
 
+    # geom = dissolve_polygons(polygonised_path)
+    simplify_and_buffer(polygonised_path, simplified_path)
     print("finished")
 
 
@@ -149,6 +148,7 @@ def mask_array(raster_path, output_path):
         # add write array
         output_band.WriteArray(array, xoff=x_offset, yoff=y_offset)
 
+
 # polygonise the mask array raster band into a polygon.
 def polygonise(binary_file, polygonsied_path):
     print("polygonising")
@@ -163,9 +163,10 @@ def polygonise(binary_file, polygonsied_path):
 
     print("polygonised")
 
-# Dissolve into one polygon create empty geometry collection then add to it
-def dissolve_polygons(polygonised_path, dissolved_output_path):
 
+# Dissolve into one polygon create empty geometry collection then add to it
+def dissolve_polygons(polygonised_path):
+    print("dissolving...")
     # open shapefile and get layer
     ds = ogr.Open(polygonised_path)
     layer = ds.GetLayer()
@@ -176,82 +177,57 @@ def dissolve_polygons(polygonised_path, dissolved_output_path):
     # iterate over features in layer
     for feature in layer:
         geometry = feature.geometry()
+
+        if geometry is None:
+            continue
+
+        if not geometry.IsValid():
+            geometry = geometry.MakeValid()
+
         geometry_type = geometry.GetGeometryName()
 
-        if geometry_type == 'MULTIPOLYGON':
-            for subgeom in geometry:
-                multipolygon.AddGeometry(subgeom)
+        if geometry_type == "MULTIPOLYGON":
+            multipolygon.AddGeometry(geometry.Clone())
 
-        elif geometry_type == 'POLYGON':
-            multipolygon.AddGeometry(geometry)
+        elif geometry_type == "POLYGON":
+            multipolygon.AddGeometry(geometry.Clone())
 
         else:
             continue
-    #unaryunion
 
-    print()
+    dissolved_geometry = multipolygon.UnaryUnion()
 
-    # create output dataset
-    output_ds, output_layer = create_vector_dataset(
-    output_path=dissolved_output_path, layer_name=Path(dissolved_path).stem, srs=layer.GetSpatialRef(), geom_type=ogr.wkbMultiPolygon
-    )
+    return dissolved_geometry
 
-    # Write features to file
-    write_feature_to_output_layer(
-    output_layer=output_layer,
-    output_geometry=merged,
-    feature_to_copy=feature,
-    )
 
 # Simplify polygon to reduce vertices
+
+
+# unaryunion in this function as well
 def simplify_and_buffer(input_path, output_path):
     print("simplifying")
-    dissolved_vector = VectorDataset(input_path)
+
+    input_ds = VectorDataset(input_path)
+
+    geom = dissolve_polygons(input_path)
+
+    print(geom.GetGeometryName())
+    print(geom.GetArea())
+
+    simplified = geom.Simplify(1)
+    buffered = simplified.Buffer(1)
 
     output_ds, output_layer = create_vector_dataset(
-        output_path=output_path,
-        layer_name=output_path.stem,
-        srs=dissolved_vector.srs,
+        output_path=output_path, layer_name="simplified", srs=input_ds.srs, geom_type=ogr.wkbMultiPolygon
     )
-    # compare to test code
-    for feature in dissolved_vector.layer:
-        geometry = feature.GetGeometryRef()
-        simplified = geometry.Simplify(1)
-        buffered = simplified.Buffer(1)
 
-        if buffered.IsEmpty():
-            print("buffered.IsEmpty()")
-            continue
+    write_feature_to_output_layer(
+        output_layer=output_layer,
+        output_geometry=buffered,
+        feature_to_copy=None,
+    )
 
-        write_feature_to_output_layer(
-            output_layer=output_layer,
-            output_geometry=buffered,
-            feature_to_copy=feature,
-        )
-
-        output_ds.SyncToDisk()
-        output_ds = None
     print("simplified")
-    # template_ds = ogr.Open(input_path)
-    # template_layer = template_ds.GetLayer()
-    # output_srs = template_ds.GetSpatialRef()
-
-    # output_ds, output_layer = create_vector_dataset(
-    #         output_path=output_path,
-    #         layer_name="test",
-    #         srs=output_srs,
-    #         fields=[Field(field.name, field.type) for field in template_layer.schema],
-    # )
-
-    # for feature in template_layer:
-    #     write_feature_to_output_layer(
-    #         output_layer=output_layer,
-    #         output_geometry=feature.geometry(),
-    #         feature_to_copy=feature,
-    #         fields_to_transfer=[],
-    #     )
-
-    #    output_ds.SyncToDisk()
 
 
 if __name__ == "__main__":
