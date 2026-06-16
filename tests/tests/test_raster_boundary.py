@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from geospatial_utils.raster.raster_boundary import extract_raster_boundary
+
 from tests.testing_utils.file_comparison import compare_vector_files
 
 

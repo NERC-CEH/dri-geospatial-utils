@@ -1,27 +1,24 @@
-"Create an simplified and buffered boundary of one or more rasters"
+"""Create a simplified and buffered boundary of one or more rasters."""
 
 import argparse
 import logging
-from osgeo import gdal, ogr
 from pathlib import Path
-import geopandas as gpd
-import pathlib
 from types import SimpleNamespace
-import os
 
+from osgeo import gdal, ogr
+
+from geospatial_utils.raster.io import create_raster_dataset_from_template
 from geospatial_utils.raster.raster_dataset import RasterDataset
 from geospatial_utils.vector.io import (
     create_vector_dataset,
     write_feature_to_output_layer,
 )
-from geospatial_utils.raster.io import create_raster_dataset_from_template
 from geospatial_utils.vector.vector_dataset import VectorDataset
-from geospatial_utils.vector.types import Field
 
 logger = logging.getLogger(__name__)
 
-COMMAND = "get_raster_footprint"
-DESCRIPTION = "Gets the footprint of a raster with simplified and buffered edges."
+COMMAND = "get_simplified_boundary"
+DESCRIPTION = "Gets the boundary of a raster with simplified and buffered edges."
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
@@ -49,10 +46,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     input_group.add_argument(
         "--raster_dir",
         type=Path,
-        help=(
-            "Path to the directory containing rasters needing boundary generated. All .tif files found within this "
-            "directory will be processed."
-        ),
+        help=("Directory containing raster files (.tif) to process. All matching rasters will be processed."),
     )
 
     return parser
@@ -79,30 +73,49 @@ def run_from_cli(args: SimpleNamespace) -> None:
     )
 
 
-def run(output_dir: str | Path, raster_path: str | Path = None, raster_dir: str | Path = None) -> None:
-    # create the output directory if it doesn't already exist
+def run(output_dir: Path, raster_path: Path = None, raster_dir: Path = None) -> None:
+    """Generate simplified boundaries for one or more rasters.
+
+    Determines whether to process a single raster or all rasters in a directory.
+
+    Args:
+        output_dir: Directory where output boundary files will be written.
+        raster_path: Optional path to a single raster file.
+        raster_dir: Optional directory containing raster files (.tif).
+
+    Raises:
+        ValueError: If neither raster_path nor raster_dir is provided.
+    """
+
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if raster_path is not None:
         raster_to_footprint(raster_path=raster_path, output_dir=output_dir)
 
+    elif raster_dir is not None:
+        for raster_file in raster_dir.rglob("*.tif"):
+            logger.info(f"Processing {raster_file.name}")
+            raster_to_footprint(raster_path=raster_file, output_dir=output_dir)
+
     else:
-        raster_dir = Path(raster_path)
-
-        for raster_path in raster_dir.rglob("*.csv"):
-            logger.info(f"Converting {raster_path.name} to geojson")
-
-            raster_to_footprint(raster_path=raster_path, output_dir=output_dir)
+        raise ValueError("Either raster_path or raster_dir must be provided.")
 
     print("finished")
 
 
-# extension tasks: turn into CLI script
-# try and write some tests
-# check for any other values apart from 0 and 1 in the binary file
+def raster_to_footprint(raster_path: Path, output_dir: Path) -> None:
+    """Generate a simplified and buffered footprint for a raster.
 
+    Pipeline:
+      1. Create binary mask raster
+      2. Polygonize mask
+      3. Simplify and buffer geometry
 
-def raster_to_footprint(raster_path, output_dir):
+    Args:
+        raster_path: Path to the input raster.
+        output_dir: Directory for intermediate and final outputs.
+    """
+
     binary_path = output_dir / "binary.tif"
     polygonised_path = output_dir / "polygonised.shp"
     simplified_path = output_dir / "boundary.shp"
@@ -115,13 +128,21 @@ def raster_to_footprint(raster_path, output_dir):
     print("finished")
 
 
-# Create a binary mask array using nodata and valid data pixels.
-def mask_array(raster_path, output_path):
+def mask_array(raster_path: Path, output_path: Path) -> None:
+    """Create a binary raster mask distinguishing data and NoData pixels.
+
+    Valid pixels are set to 1 and NoData pixels are set to 0.
+
+    Args:
+        raster_path: Input raster file.
+        output_path: Output binary mask raster.
+    """
+
     print("starting pipeline")
+
     raster_dataset = RasterDataset(raster_path)
 
-    # create new dataset to write the mask array to. Use create raster dataset from template in main. Get the first abnd
-    # set the nodata value to 0.
+    # Use create raster dataset from template. Get the first band set the nodata value to 0.
     output_dataset = create_raster_dataset_from_template(
         output_path, template_raster_path=raster_path, num_bands=1, output_dtype=gdal.GDT_Byte
     )
@@ -134,7 +155,6 @@ def mask_array(raster_path, output_path):
     for x_offset, y_offset, x_size, y_size in raster_dataset.block_iterator():
         array = raster_band.ReadAsArray(x_offset, y_offset, x_size, y_size)
 
-        # binary mask
         # find no data value and turn that to 0 and data to 1
         no_data = raster_band.GetNoDataValue()
 
@@ -150,8 +170,16 @@ def mask_array(raster_path, output_path):
 
 
 # polygonise the mask array raster band into a polygon.
-def polygonise(binary_file, polygonsied_path):
+def polygonise(binary_file: Path, polygonsied_path: Path) -> None:
+    """Convert a binary raster mask into vector polygons.
+
+    Args:
+        binary_file: Path to the binary raster file.
+        polygonised_path: Output path for the polygonized shapefile.
+    """
+
     print("polygonising")
+
     binary_ds = RasterDataset(binary_file)
     binary_band = binary_ds.ds.GetRasterBand(1)
 
@@ -165,7 +193,16 @@ def polygonise(binary_file, polygonsied_path):
 
 
 # Dissolve into one polygon create empty geometry collection then add to it
-def dissolve_polygons(polygonised_path):
+def dissolve_polygons(polygonised_path: Path) -> ogr.Geometry:
+    """Dissolve all polygons in a vector dataset into a single geometry.
+
+    Args:
+        polygonised_path: Path to a polygon shapefile.
+
+    Returns:
+        ogr.Geometry: A dissolved multipolygon geometry.
+    """
+
     print("dissolving...")
     # open shapefile and get layer
     ds = ogr.Open(polygonised_path)
@@ -200,11 +237,14 @@ def dissolve_polygons(polygonised_path):
     return dissolved_geometry
 
 
-# Simplify polygon to reduce vertices
+def simplify_and_buffer(input_path: Path, output_path: Path) -> None:
+    """Simplify and buffer a dissolved polygon geometry.
 
+    Args:
+        input_path: Path to the input polygon dataset.
+        output_path: Path to the output simplified shapefile.
+    """
 
-# unaryunion in this function as well
-def simplify_and_buffer(input_path, output_path):
     print("simplifying")
 
     input_ds = VectorDataset(input_path)
