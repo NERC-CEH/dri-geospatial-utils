@@ -77,4 +77,4 @@ def write_feature_to_output_layer(
             field_value = feature_to_copy.GetField(field_name)
             output_feature.SetField(field_name, field_value)
 
-            output_layer.CreateFeature(output_feature)
+    output_layer.CreateFeature(output_feature)

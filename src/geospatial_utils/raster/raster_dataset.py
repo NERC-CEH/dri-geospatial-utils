@@ -92,3 +92,24 @@ class RasterDataset:
 
         y_pixel = (y_coord - self.geotransform.ul_y - x_coord * self.geotransform.y_rot) / self.geotransform.y_res
         return int(round(x_pixel, 0)), int(round(y_pixel, 0))
+
+    def block_iterator(self):
+        raster_band = self.ds.GetRasterBand(1)
+        block_x_size, block_y_size = raster_band.GetBlockSize()
+
+        # work out offsets
+        for x_offset in range(0, self.ds.RasterXSize, block_x_size):
+            for y_offset in range(0, self.ds.RasterYSize, block_y_size):
+                x_size = block_x_size
+                y_size = block_y_size
+
+                # The row and column indices refer to the bottom left pixel. Calculate the maximum row and column being
+                # read aren't going to be beyond the size of the raster, and adjust the x and y sizes accordingly
+
+                if x_offset + block_x_size > self.ds.RasterXSize:
+                    x_size = self.ds.RasterXSize - x_offset
+
+                if y_offset + block_y_size > self.ds.RasterYSize:
+                    y_size = self.ds.RasterYSize - y_offset
+
+                yield x_offset, y_offset, x_size, y_size
