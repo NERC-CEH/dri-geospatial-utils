@@ -1,9 +1,9 @@
 import argparse
 
-from geospatial_utils.tools import convert_to_cog, reproject_raster, simplified_boundary
+from geospatial_utils.tools import convert_to_cog, raster_boundary, reproject_raster
 from geospatial_utils.tools.fdri import csv_to_geojson
 
-MODULES = [convert_to_cog, reproject_raster, csv_to_geojson, simplified_boundary]
+MODULES = [convert_to_cog, reproject_raster, csv_to_geojson, raster_boundary]
 
 
 def construct_parser() -> argparse.Parser:
