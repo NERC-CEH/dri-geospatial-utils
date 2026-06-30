@@ -118,6 +118,27 @@ def csv_to_geojson(input_csv_path: str | Path, output_geojson_dir: str | Path) -
     # keep columns that have been mapped
     cols_to_keep = list(set(df.columns).intersection(POSSIBLE_NAME_KEY.keys()))
 
+    # convert start and end dates to consistent format
+    if "Start_date" in df.columns:
+        df["Start_date"] = pd.to_datetime(df["Start_date"], errors="coerce")
+
+        mask = df["Start_date"].isna()
+        df.loc[mask, "Start_date"] = pd.to_datetime(
+            df.loc[mask, "Start_date"].astype(str), format="%Y%m%d", errors="coerce"
+        )
+
+        df["Start_date"] = df["Start_date"].dt.strftime("%Y-%m-%d")
+
+    if "End_date" in df.columns:
+        df["End_date"] = pd.to_datetime(df["End_date"], errors="coerce")
+
+        mask = df["End_date"].isna()
+        df.loc[mask, "End_date"] = pd.to_datetime(
+            df.loc[mask, "End_date"].astype(str), format="%Y%m%d", errors="coerce"
+        )
+
+        df["End_date"] = df["End_date"].dt.strftime("%Y-%m-%d")
+
     # convert to geodataframe
     geo_df = gpd.GeoDataFrame(
         df[cols_to_keep], geometry=gpd.points_from_xy(df["Longitude"], df["Latitude"]), crs="EPSG:4326"
