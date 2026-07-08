@@ -11,6 +11,7 @@ from types import SimpleNamespace
 import numpy as np
 from osgeo import gdal, osr
 
+from geospatial_utils.raster.boundary_simplification import extract_raster_boundary
 from geospatial_utils.raster.reprojection import reproject_raster
 
 logger = logging.getLogger(__name__)
@@ -160,6 +161,14 @@ def convert_single_raster_to_cog(
     reprojected_path = reproject_raster(
         input_path=raster_path, output_path=reprojected_path, output_epsg_code=DEFAULT_EPSG_CODE
     )
+
+    # Create a footprint for the (reprojected) raster and write it in WGS84 for UI upload.
+    try:
+        footprint_path = Path(output_dir).joinpath(f"{raster_path.stem}_footprint.geojson")
+        extract_raster_boundary(reprojected_path, footprint_path, output_epsg_code=4326)
+        logger.info(f"Wrote footprint to {footprint_path}")
+    except Exception:
+        logger.exception("Failed to create raster footprint")
 
     logger.info("Building colour ramp")
     output_colour_ramp_path = output_dir.joinpath(f"{raster_path.stem}_colourramp.txt")
