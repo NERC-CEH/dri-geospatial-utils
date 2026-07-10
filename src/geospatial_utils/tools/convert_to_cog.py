@@ -9,9 +9,11 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
-from osgeo import gdal, osr
+from osgeo import gdal
 
+from geospatial_utils.raster.raster_boundary import raster_boundary
 from geospatial_utils.raster.reprojection import reproject_raster
+from geospatial_utils.vector.vector_dataset import VectorDataset
 
 logger = logging.getLogger(__name__)
 
@@ -109,8 +111,6 @@ def run(
             parameter must be provided.
 
     """
-    logging.info("Converting to COG")
-
     # create the output diectory if it doesn't already exist
     os.makedirs(output_dir, exist_ok=True)
 
@@ -174,53 +174,20 @@ def convert_single_raster_to_cog(
     create_legend(output_colour_ramp_path, legend_output_path)
 
     logger.info("Converting to COG")
-    output_path = output_dir.joinpath(f"{colourised_path.stem}_cog.tif")
-    convert_to_cog(colourised_path, output_path)
+    output_cog_path = output_dir.joinpath(f"{colourised_path.stem}_cog.tif")
+    convert_to_cog(colourised_path, output_cog_path)
+
+    logger.info("Creating initial boundary geometry")
+    boundary_3857_path = temp_dir.joinpath(f"{colourised_path.stem}_boundary.geojson")
+    raster_boundary(raster_path=output_cog_path, output_path=boundary_3857_path)
+
+    logger.info("Reprojecting boundary to WGS84")
+    # Reproject the boundary to EPSG 4326 (WSG84) before saving to the final output directory
+    boundary_4326_path = temp_dir.joinpath(f"{raster_path.stem}_boundary_4326.geojson")
+    boundary_ds = VectorDataset(boundary_3857_path)
+    boundary_ds.reproject_layer(output_path=boundary_4326_path, target_epsg=4326)
 
     logger.info(f"Finished converting: {str(raster_path)}")
-
-
-def reproject_to_epsg_3857(raster_path: str | Path, output_path: str | Path, input_epsg: int = 27700) -> None:
-    """
-    Reprojects the input raster into EPSG 3857
-
-    This function takes an input raster and writes a reprojected raster to the output path. https://gdal.org/en/stable/api/python/utilities.html
-    # for info on how to run the function osgeo.gdal.Warp(destNameOrDestDS, srcDSOrSrcDSTab, **kwargs)
-
-    Args:
-        raster_path: _description_
-        output_path: _description_
-        input_epsg: _description_. Defaults to 27700.
-    """
-
-    # open raster and get the spatial reference
-    ds = gdal.Open(raster_path)
-    ds_srs = ds.GetSpatialRef()
-
-    # import the EPSG and put it in the container.
-    # if the EPSG isn't picked up, require user input.
-    if ds_srs is None:
-        ds_srs = osr.SpatialReference()
-        ds_srs.ImportFromEPSG(input_epsg)
-
-    # get spatial reference from gdal - one to reproject to
-    target_srs = osr.SpatialReference()
-    target_srs.ImportFromEPSG(3857)
-
-    # compression set up (can be from QGIS advanced high comopression export)
-    creation_options = ["TILED=YES", "COMPRESS=DEFLATE", "PREDICTOR=2", "ZLEVEL=9"]
-
-    # reprojection options using gdal warp, save as an object to call later
-    # https://gdal.org/en/stable/api/python/utilities.html for info on how to run the gdal.Warp function.
-    options = gdal.WarpOptions(
-        srcSRS=ds_srs, dstSRS=target_srs.ExportToWkt(), format="GTiff", creationOptions=creation_options
-    )
-
-    # Set the config options
-    gdal.SetConfigOption("GTIFF_SRS_SOURCE", "EPSG")
-
-    # run the reprojection
-    gdal.Warp(output_path, ds, options=options)
 
 
 def colour_ramp(
