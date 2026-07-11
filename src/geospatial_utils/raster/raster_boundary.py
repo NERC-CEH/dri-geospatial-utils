@@ -76,7 +76,10 @@ def create_binary_mask(raster_path: Path, output_path: Path) -> None:
 
     band_index = 1
     if raster_dataset.is_rgb:
-        band_index = 4
+        # If the raster is considered to be an RGB layer then it will have either 3 bands, each with a nodata, or 4
+        # bands with a separate nodata value. Use the RasterCount as the band index as this ensures flexibility to
+        # accomodate both band structures.
+        band_index = raster_dataset.ds.RasterCount
     raster_band = raster_dataset.ds.GetRasterBand(band_index)
 
     no_data = raster_band.GetNoDataValue()
@@ -138,7 +141,6 @@ def simplify_boundary(input_path: Path, output_path: Path) -> None:
         output_path=output_path,
         layer_name=output_path.name,
         srs=input_ds.srs,
-        driver_name="GeoJSON",
     )
 
     write_feature_to_output_layer(
@@ -146,6 +148,9 @@ def simplify_boundary(input_path: Path, output_path: Path) -> None:
         output_geometry=buffered,
         feature_to_copy=None,
     )
+
+    # Ensure the dataset is closed properly
+    del output_ds
 
 
 def dissolve_layer(input_path: Path) -> ogr.Geometry:

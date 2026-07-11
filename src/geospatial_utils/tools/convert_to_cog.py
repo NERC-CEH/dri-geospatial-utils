@@ -12,6 +12,7 @@ import numpy as np
 from osgeo import gdal
 
 from geospatial_utils.raster.raster_boundary import raster_boundary
+from geospatial_utils.raster.raster_dataset import RasterDataset
 from geospatial_utils.raster.reprojection import reproject_raster
 from geospatial_utils.vector.vector_dataset import VectorDataset
 
@@ -183,9 +184,9 @@ def convert_single_raster_to_cog(
 
     logger.info("Reprojecting boundary to WGS84")
     # Reproject the boundary to EPSG 4326 (WSG84) before saving to the final output directory
-    boundary_4326_path = temp_dir.joinpath(f"{raster_path.stem}_boundary_4326.geojson")
+    boundary_4326_path = output_dir.joinpath(f"{raster_path.stem}_boundary_4326.geojson")
     boundary_ds = VectorDataset(boundary_3857_path)
-    boundary_ds.reproject_layer(output_path=boundary_4326_path, target_epsg=4326)
+    boundary_ds.reproject_layer(output_path=boundary_4326_path, target_epsg=4326, swap_xy=True)
 
     logger.info(f"Finished converting: {str(raster_path)}")
 
@@ -308,6 +309,12 @@ def apply_colour_relief(
         creationOptions=creation_options,
     )
 
+    # Ensure the nodata value for each band is 0
+    colour_ds = RasterDataset(colourised_path)
+    for band_index in range(1, colour_ds.ds.RasterCount + 1):
+        band = colour_ds.ds.GetRasterBand(band_index)
+        band.SetNoDataValue(0)
+
 
 def create_legend(colourmap_path: str | Path, legend_path: str | Path) -> None:
     """Creates a json file containing the legend information for the colourised raster.
@@ -317,31 +324,42 @@ def create_legend(colourmap_path: str | Path, legend_path: str | Path) -> None:
 
     The output format is as follows:
 
-    [
-        {
-            "value": float (minimum raster value for the bound)
-            "colour": [red, green, blue] (0-255 values for red, green and blue respectively)
-        }
-    ]
+    {
+        "type": "range",
+        "values": [
+            {
+                "value": float (minimum raster value for the bound)
+                "colour": [red, green, blue] (0-255 values for red, green and blue respectively)
+            }
+        ]
+    }
 
     """
     # create a space to store the r,g b values
-    legends = []
+    legend_values = []
 
-    with open(colourmap_path) as fin:
-        colour_ramp = fin.readlines()
+    with open(colourmap_path) as colourmap_file:
+        colour_ramp = colourmap_file.readlines()
+        # Ignore the first line as this will be nodata and should not be included as part of the legend
+        colour_ramp = colour_ramp[1:]
 
-        for row in colour_ramp[1:]:
-            # Each row is represented as a space separated list, with "value red green blue" and an optional "alpha"
-            # value. In order to accomodate both formats, split the row into it's individual components, then extract
-            # out the first 4 as the alpha value isn't needed for the legend.
-            row_components = row.strip().split(" ")
+        min_entry = None
+        for current_row in colour_ramp:
+            row_components = current_row.strip().split(" ")
             value, r, g, b = row_components[:4]
 
-            legends.append({"value": float(value), "colour": [int(r), int(g), int(b)]})
+            max_entry = {"value": float(value), "colour": [int(r), int(g), int(b)]}
 
-    with open(legend_path, "w") as fout:
-        json.dump(legends, fout, indent=2)
+            if min_entry is None:
+                min_entry = max_entry
+                continue
+
+            legend_values.append({"min": min_entry, "max": max_entry})
+
+    legend = {"type": "range", "values": legend_values}
+
+    with open(legend_path, "w") as legend_file:
+        json.dump(legend, legend_file, indent=2)
 
 
 def convert_to_cog(raster_path: str | Path, output_path: str | Path) -> None:
