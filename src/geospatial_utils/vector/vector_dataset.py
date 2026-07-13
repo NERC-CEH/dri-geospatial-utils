@@ -1,9 +1,12 @@
+import logging
 from pathlib import Path
 
 from osgeo import gdal, ogr, osr
 
-from geospatial_utils.vector.io import create_vector_dataset, write_feature_to_output_layer
+from geospatial_utils.vector.io import create_vector_dataset, get_driver_name, write_feature_to_output_layer
 from geospatial_utils.vector.types import Field
+
+logger = logging.getLogger(__name__)
 
 
 class VectorDataset:
@@ -75,7 +78,7 @@ class VectorDataset:
             layer_name="test",
             srs=target_srs,
             fields=self.fields,
-            driver_name=self.ds.GetDriver().ShortName,
+            driver_name=get_driver_name(output_path),
             geom_type=self.layer.GetGeomType(),
         )
 
