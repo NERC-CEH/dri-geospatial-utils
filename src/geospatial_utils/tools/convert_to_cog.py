@@ -157,7 +157,8 @@ def convert_single_raster_to_cog(
     temp_dir = Path(temp_dir)
 
     logger.info("Reprojecting to EPSG 3857")
-    reprojected_path = temp_dir.joinpath(f"{raster_path.stem}_3857.tif")
+    # Note that the reprojected greyscale raster is saved to the main output directory
+    reprojected_path = output_dir.joinpath(f"{raster_path.stem}_3857.tif")
     reprojected_path = reproject_raster(
         input_path=raster_path, output_path=reprojected_path, output_epsg_code=DEFAULT_EPSG_CODE
     )
