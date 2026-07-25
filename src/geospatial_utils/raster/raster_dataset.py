@@ -1,7 +1,9 @@
 from pathlib import Path
 from typing import NamedTuple
 
-from osgeo import gdal
+from osgeo import gdal, osr
+
+from geospatial_utils.utils.dataset_utils import DatasetABC
 
 
 class GeoTransform(NamedTuple):
@@ -18,16 +20,9 @@ class Point(NamedTuple):
     y: float
 
 
-class RasterDataset:
+class RasterDataset(DatasetABC):
     def __init__(self, ds: str | Path | gdal.Dataset):
-        if isinstance(ds, str | Path):
-            self.open_dataset(ds)
-        elif isinstance(ds, gdal.Dataset):
-            self.ds = ds
-        else:
-            raise ValueError(f"{ds} is not a valid raster dataset.")
-
-        self.srs = self.ds.GetSpatialRef()
+        super().__init__(ds)
 
         self.geotransform = GeoTransform(*self.ds.GetGeoTransform())
 
@@ -41,15 +36,13 @@ class RasterDataset:
             IOError: The raster file doesn't exist.
 
         """
-        if not Path(file_path).exists():
+        if not Path(file_path).exists() and not str(file_path).startswith("/vsicurl"):
             raise IOError(f"The dataset; {file_path} does not exist")
 
         self.ds = gdal.Open(str(file_path))
 
-    @property
-    def epsg_code(self) -> str:
-        """Returns the EPSG code from the raster."""
-        return self.srs.GetAuthorityCode(None)
+    def get_srs(self) -> osr.SpatialReference:
+        return self.ds.GetSpatialRef()
 
     @property
     def is_rgb(self) -> bool:
@@ -93,7 +86,7 @@ class RasterDataset:
         y_pixel = (y_coord - self.geotransform.ul_y - x_coord * self.geotransform.y_rot) / self.geotransform.y_res
         return int(round(x_pixel, 0)), int(round(y_pixel, 0))
 
-    def block_iterator(self):
+    def block_iterator(self) -> tuple(int, int, int, int):
         raster_band = self.ds.GetRasterBand(1)
         block_x_size, block_y_size = raster_band.GetBlockSize()
 

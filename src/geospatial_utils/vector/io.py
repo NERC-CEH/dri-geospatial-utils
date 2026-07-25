@@ -2,8 +2,31 @@ from pathlib import Path
 
 from osgeo import ogr, osr
 
-from geospatial_utils.vector.constants import SHAPEFILE_DRIVER
+from geospatial_utils.vector.constants import DRIVER_MAPPING
 from geospatial_utils.vector.types import Field
+
+
+def get_driver_name(vector_path: Path | str) -> None:
+    """
+    Detect the name of the ogr driver to use for creating the vector dataset
+
+    Args:
+        vector_path: Path to the vector dataset to be created
+
+    Raises:
+        ValueError: The vector path is not listed in the driver mapping constant.
+
+    Returns:
+        Name of the ogr driver
+
+    """
+    output_path = Path(vector_path)
+
+    driver_name = DRIVER_MAPPING.get(output_path.suffix)
+    if driver_name is None:
+        raise ValueError(f"Could not detect driver to use for extension: {output_path.suffix}")
+
+    return driver_name
 
 
 def create_vector_dataset(
@@ -11,7 +34,7 @@ def create_vector_dataset(
     layer_name: str | Path,
     srs: osr.SpatialReference,
     fields: list[Field] = [],
-    driver_name: str = SHAPEFILE_DRIVER,
+    driver_name: str | None = None,
     geom_type: ogr.Geometry = ogr.wkbPolygon,
 ) -> None:
     """Creates an empty gdal.Dataset with a single layer, ready for features to be added.
@@ -30,6 +53,9 @@ def create_vector_dataset(
         Opened gdal.Dataset and ogr.Layer objects.
 
     """
+    if driver_name is None:
+        driver_name = get_driver_name(output_path)
+
     output_driver = ogr.GetDriverByName(driver_name)
     output_ds = output_driver.CreateDataSource(output_path)
     output_layer = output_ds.CreateLayer(layer_name, srs=srs, geom_type=geom_type)

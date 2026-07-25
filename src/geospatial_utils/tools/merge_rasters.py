@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 from osgeo import gdal
 
+from geospatial_utils.raster.io import DEFAULT_CREATION_OPTIONS
 from geospatial_utils.raster.raster_dataset import RasterDataset
 
 logger = logging.getLogger(__name__)
@@ -53,8 +54,7 @@ def run(raster_paths: list[str | Path], output_path: str | Path) -> None:
         gdal.BuildVRT(vrt_path, [str(raster_path) for raster_path in raster_paths])
 
         logger.info("Converting to single raster")
-        creation_options = ["TILED=YES", "COMPRESS=DEFLATE", "PREDICTOR=2", "ZLEVEL=9"]
-        gdal.Warp(output_path, vrt_path, creationOptions=creation_options)
+        gdal.Warp(output_path, vrt_path, creationOptions=DEFAULT_CREATION_OPTIONS)
 
     logger.info("Finished")
 
@@ -68,10 +68,6 @@ def check_for_consistent_srs(raster_paths: list[Path | str]) -> None:
             continue
         if epsg_code != raster_ds.epsg_code:
             raise ValueError("The epsg code is inconsistent between the provided rasters to be merged.")
-
-
-def merge_rasters(raster_paths: list[Path | str]) -> None:
-    pass
 
 
 if __name__ == "__main__":

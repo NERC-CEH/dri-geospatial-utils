@@ -11,6 +11,7 @@ from types import SimpleNamespace
 import numpy as np
 from osgeo import gdal, osr
 
+from geospatial_utils.raster.io import DEFAULT_CREATION_OPTIONS
 from geospatial_utils.raster.reprojection import reproject_raster
 
 logger = logging.getLogger(__name__)
@@ -207,13 +208,10 @@ def reproject_to_epsg_3857(raster_path: str | Path, output_path: str | Path, inp
     target_srs = osr.SpatialReference()
     target_srs.ImportFromEPSG(3857)
 
-    # compression set up (can be from QGIS advanced high comopression export)
-    creation_options = ["TILED=YES", "COMPRESS=DEFLATE", "PREDICTOR=2", "ZLEVEL=9"]
-
     # reprojection options using gdal warp, save as an object to call later
     # https://gdal.org/en/stable/api/python/utilities.html for info on how to run the gdal.Warp function.
     options = gdal.WarpOptions(
-        srcSRS=ds_srs, dstSRS=target_srs.ExportToWkt(), format="GTiff", creationOptions=creation_options
+        srcSRS=ds_srs, dstSRS=target_srs.ExportToWkt(), format="GTiff", creationOptions=DEFAULT_CREATION_OPTIONS
     )
 
     # Set the config options

@@ -3,6 +3,7 @@ from pathlib import Path
 
 from osgeo import gdal, osr
 
+from geospatial_utils.raster.io import DEFAULT_CREATION_OPTIONS
 from geospatial_utils.raster.raster_dataset import RasterDataset
 
 logger = logging.getLogger(__name__)
@@ -41,15 +42,13 @@ def reproject_raster(
     pixel_width = input_ds.geotransform.x_res
     pixel_height = input_ds.geotransform.y_res
 
-    creation_options = ["TILED=YES", "COMPRESS=DEFLATE", "PREDICTOR=2", "ZLEVEL=9"]
-
     warp_options = gdal.WarpOptions(
         dstSRS=output_srs,
         srcSRS=input_srs,
         xRes=abs(pixel_width),
         yRes=abs(pixel_height),
         resampleAlg="bilinear",
-        creationOptions=creation_options,
+        creationOptions=DEFAULT_CREATION_OPTIONS,
     )
 
     gdal.Warp(str(output_path), input_ds.ds, options=warp_options)
