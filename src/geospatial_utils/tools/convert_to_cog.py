@@ -1,19 +1,17 @@
 """Convert one or more rasters to a COG formatted raster, in EPSG 3857."""
 
 import argparse
-import json
 import logging
 import os
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
-import numpy as np
 from osgeo import gdal, osr
 
+from geospatial_utils.raster.colour_raster import apply_colour_relief, create_legend
 from geospatial_utils.raster.io import DEFAULT_CREATION_OPTIONS
 from geospatial_utils.raster.raster_boundary import raster_boundary
-from geospatial_utils.raster.raster_dataset import RasterDataset
 from geospatial_utils.raster.reprojection import reproject_raster
 from geospatial_utils.vector.vector_dataset import VectorDataset
 
@@ -52,7 +50,14 @@ def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        "--colourmap_path", required=True, type=Path, help=("Provide file path to a defined colour ramp text file.")
+        "--colourmap_path",
+        required=False,
+        default=None,
+        type=Path,
+        help=("Provide file path to a defined colour ramp text file."),
+    )
+    parser.add_argument(
+        "--create-boundary", action="store_true", help="If provided the boundary for the raster will be created"
     )
 
     input_group = parser.add_mutually_exclusive_group(required=True)
@@ -91,6 +96,7 @@ def run_from_cli(args: SimpleNamespace) -> None:
         colourmap_path=args.colourmap_path,
         raster_path=args.raster_path,
         raster_dir=args.raster_dir,
+        create_boundary=args.create_boundary,
     )
 
 
@@ -99,6 +105,7 @@ def run(
     colourmap_path: str | Path,
     raster_path: str | Path = None,
     raster_dir: str | Path = None,
+    create_boundary: bool = False,
 ) -> None:
     """The main convert to cog function
 
@@ -111,6 +118,7 @@ def run(
             must be provided.
         raster_dir: Path to a directory of raster files to be converted. If this is not provided, then the raster_path
             parameter must be provided.
+        create_boundary: Flag. If provided, the boundary geojson file will also be generated.
 
     """
     # create the output diectory if it doesn't already exist
@@ -131,11 +139,15 @@ def run(
                     raster_path=raster_path, temp_dir=temp_dir, output_dir=output_dir, colourmap_path=colourmap_path
                 )
 
-    logging.info("Finished")
+    logger.info("Finished")
 
 
 def convert_single_raster_to_cog(
-    raster_path: str | Path, temp_dir: str, output_dir: str | Path, colourmap_path: str | Path
+    raster_path: str | Path,
+    temp_dir: str,
+    output_dir: str | Path,
+    colourmap_path: str | Path,
+    create_boundary: bool = False,
 ) -> None:
     """Converts a single raster to a COG formatted raster.
 
@@ -150,6 +162,7 @@ def convert_single_raster_to_cog(
         output_dir: Path to the location where the final converted raster will be saved to.
         colourmap_path: Path to the template .txt colourmap file which will be customised for the current raster being
             processed.
+        create_boundary: Flag. If provided, the boundary geojson file will also be generated.
 
     """
 
@@ -159,36 +172,38 @@ def convert_single_raster_to_cog(
 
     logger.info("Reprojecting to EPSG 3857")
     # Note that the reprojected greyscale raster is saved to the main output directory
-    reprojected_path = output_dir.joinpath(f"{raster_path.stem}_3857.tif")
+    reprojected_path = temp_dir.joinpath(f"{raster_path.stem}_3857.tif")
     reprojected_path = reproject_raster(
         input_path=raster_path, output_path=reprojected_path, output_epsg_code=DEFAULT_EPSG_CODE
     )
 
-    logger.info("Building colour ramp")
-    output_colour_ramp_path = output_dir.joinpath(f"{raster_path.stem}_colourramp.txt")
-    colour_ramp(reprojected_path, colourmap_path, output_colour_ramp_path)
+    logger.info("Converting reprojected raster to COG")
+    output_greyscale_cog_path = output_dir.joinpath(f"{reprojected_path.stem}_cog.tif")
+    convert_to_cog(reprojected_path, output_greyscale_cog_path)
 
-    logger.info("Applying colour relief")
-    colourised_path = temp_dir.joinpath(f"{reprojected_path.stem}_colourised.tif")
-    apply_colour_relief(reprojected_path, output_colour_ramp_path, colourised_path)
+    if colourmap_path:
+        logger.info("Applying colour relief")
+        colourised_path = temp_dir.joinpath(f"{reprojected_path.stem}_colourised.tif")
+        apply_colour_relief(raster_path=reprojected_path, colourmap_path=colourmap_path, output_path=colourised_path)
 
-    logger.info("Creating the legend.")
-    legend_output_path = output_dir.joinpath(f"{raster_path.stem}_legend.json")
-    create_legend(output_colour_ramp_path, legend_output_path)
+        logger.info("Creating the legend.")
+        legend_output_path = output_dir.joinpath(f"{raster_path.stem}_legend.json")
+        create_legend(colourmap_path=colourmap_path, legend_path=legend_output_path)
 
-    logger.info("Converting to COG")
-    output_cog_path = output_dir.joinpath(f"{colourised_path.stem}_cog.tif")
-    convert_to_cog(colourised_path, output_cog_path)
+        logger.info("Converting colour raster to COG")
+        output_cog_path = output_dir.joinpath(f"{colourised_path.stem}_cog.tif")
+        convert_to_cog(colourised_path, output_cog_path)
 
-    logger.info("Creating initial boundary geometry")
-    boundary_3857_path = temp_dir.joinpath(f"{colourised_path.stem}_boundary.geojson")
-    raster_boundary(raster_path=output_cog_path, output_path=boundary_3857_path)
+    if create_boundary:
+        logger.info("Creating initial boundary geometry")
+        boundary_3857_path = temp_dir.joinpath(f"{colourised_path.stem}_boundary.geojson")
+        raster_boundary(raster_path=output_cog_path, output_path=boundary_3857_path)
 
-    logger.info("Reprojecting boundary to WGS84")
-    # Reproject the boundary to EPSG 4326 (WSG84) before saving to the final output directory
-    boundary_4326_path = output_dir.joinpath(f"{raster_path.stem}_boundary_4326.geojson")
-    boundary_ds = VectorDataset(boundary_3857_path)
-    boundary_ds.reproject_layer(output_path=boundary_4326_path, target_epsg=4326, swap_xy=True)
+        logger.info("Reprojecting boundary to WGS84")
+        # Reproject the boundary to EPSG 4326 (WSG84) before saving to the final output directory
+        boundary_4326_path = output_dir.joinpath(f"{raster_path.stem}_boundary_4326.geojson")
+        boundary_ds = VectorDataset(boundary_3857_path)
+        boundary_ds.reproject_layer(output_path=boundary_4326_path, target_epsg=4326, swap_xy=True)
 
     logger.info(f"Finished converting: {str(raster_path)}")
 
@@ -231,177 +246,6 @@ def reproject_to_epsg_3857(raster_path: str | Path, output_path: str | Path, inp
 
     # run the reprojection
     gdal.Warp(output_path, ds, options=options)
-
-
-def colour_ramp(
-    input_raster_path: str | Path,
-    colourmap_template_path: str | Path,
-    output_colour_ramp_path: str | Path,
-) -> None:
-    """Create the colour ramp
-
-    Using an existing template colour ramp file to provide the colours, create a new colour ramp text file
-    with the colours applied at equidistant intervals from the minimum to maximum range of the input raster.
-
-    The template colour ramp text file should have the following format:
-    - The first row corresponds to the nodata value with a rgb colour of (0, 0, 0). This will be used as the nodata
-      colour when the colour ramp is applied to the raster.
-    - Each row following this will have the raster value corresponding to the minimum bound for the colour, and the
-      red, green, blue and alpha values for that colour. Note that alpha should always be 0
-
-    For example, for a raster with a nodata value of -9999, a min-max range from 10-40 and three colours within the
-    template colour ramp (e.g. blue, green, and yellow), the contents of the colour map would look something like this:
-
-    ```
-    -9999 0 0 0 0
-    10 0 0 255 0
-    20 0 255 0 0
-    30 255 255 0 0
-    ```
-
-    Args:
-        input_raster_path: Path to the raster file to fit the template colour ramp to.
-        colourmap_template_path: Text file containing the colour ramp to modify to work with the input raster.
-        output_colour_ramp_path: Location to save the customised colour ramp to. It is expected this should not already
-            exist.
-
-    Raises:
-        ValueError: No nodata value could be found within the raster.
-
-    """
-    # Open input raster and get the nodata value from the elevation band.
-    ds = gdal.Open(input_raster_path)
-    band = ds.GetRasterBand(1)
-    nodata_value = band.GetNoDataValue()
-
-    # raise a ValueError if no NoData value is present in the raster.
-    if nodata_value is None:
-        raise ValueError(f"NoData value not found in {input_raster_path}")
-
-    # get min and max of the raster to classify for colourisation.
-    min_value, max_value = band.ComputeRasterMinMax(approx_ok=True)
-
-    # open the navia template file which has the rgb for the colours
-    # store the contents as a variable to call later and close the file.
-    with open(colourmap_template_path) as colourmap_file:
-        colourmap_data = colourmap_file.readlines()
-
-    # calculate the evenly spaced intervals from the raster value range using linspace.
-    # minus one because one entry in the no data row.
-    interval_values = np.linspace(min_value, max_value, len(colourmap_data) - 1)
-
-    # Round the interval values down to the nearest 2dp to make the legend entries easier to read.
-    # By rounding down before the colour ramp is applied, it ensures that the legend corresponds
-    # accurately to the colourised raster.
-    interval_values = np.trunc((interval_values * 100)) / 100
-
-    # Construct the nodata row. This will be hardcoded to black
-    no_data_row = f"{nodata_value} 0 0 0 0"
-
-    output_colourmap_data = [no_data_row]
-
-    # loop through each row simultaneously but ignoring the no data value
-    # row in the template file so the colours match the intervals.
-    for row, interval_value in zip(colourmap_data[1:], interval_values):
-        # Split into value, and colour code. The colour code will either be rgb or rgba
-        _, colour_code = row.strip().split(" ", 1)
-
-        # create a new row of joined data to append to output data. Add the interval
-        # value to the rgb value from the template into one new row.
-        new_rows = f"{interval_value} {colour_code}"
-        output_colourmap_data.append(new_rows)
-
-    # write the file to an output path.
-    with open(output_colour_ramp_path, "w") as colourmap_file:
-        colourmap_file.write("\n".join(output_colourmap_data))
-
-
-def apply_colour_relief(
-    input_raster_path: str | Path, colour_ramp_path: str | Path, colourised_path: str | Path
-) -> None:
-    """Applies the modified colour ramp text file to the raster.
-
-    Args:
-        input_raster_path: Path to the single band raster to be colourised.
-        colour_ramp_path: Path to the .txt file containing the colour ramp information, modified to fit the input
-        raster's min - max bounds and nodata value.
-        colourised_path: Path to write the output, RGBA formatted colourised raster to.
-
-    Raises:
-        ValueError: No nodata value could be found for the input raster.
-
-    """
-
-    # Open input raster and get the nodata value from the elevation band.
-    ds = gdal.Open(input_raster_path)
-    band = ds.GetRasterBand(1)
-    nodata_value = band.GetNoDataValue()
-
-    # raise a ValueError if no NoData value is present in the raster.
-    if nodata_value is None:
-        raise ValueError(f"NoData value not found in {input_raster_path}")
-
-    # Apply the color ramp, creating a RGBA raster.
-    creation_options = ["TILED=YES", "COMPRESS=DEFLATE", "PREDICTOR=2", "ZLEVEL=9"]
-    gdal.DEMProcessing(
-        destName=colourised_path,
-        srcDS=gdal.Open(input_raster_path),
-        colorFilename=colour_ramp_path,
-        processing="color-relief",
-        creationOptions=creation_options,
-    )
-
-    # Ensure the nodata value for each band is 0
-    colour_ds = RasterDataset(colourised_path)
-    for band_index in range(1, colour_ds.ds.RasterCount + 1):
-        band = colour_ds.ds.GetRasterBand(band_index)
-        band.SetNoDataValue(0)
-
-
-def create_legend(colourmap_path: str | Path, legend_path: str | Path) -> None:
-    """Creates a json file containing the legend information for the colourised raster.
-
-    This takes the .txt colourmap file, modified to the min-max bounds for the raster being processed, and creates
-    a json dictionary of the colours and corresponding values.
-
-    The output format is as follows:
-
-    {
-        "type": "range",
-        "values": [
-            {
-                "value": float (minimum raster value for the bound)
-                "colour": [red, green, blue] (0-255 values for red, green and blue respectively)
-            }
-        ]
-    }
-
-    """
-    # create a space to store the r,g b values
-    legend_values = []
-
-    with open(colourmap_path) as colourmap_file:
-        colour_ramp = colourmap_file.readlines()
-        # Ignore the first line as this will be nodata and should not be included as part of the legend
-        colour_ramp = colour_ramp[1:]
-
-        min_entry = None
-        for current_row in colour_ramp:
-            row_components = current_row.strip().split(" ")
-            value, r, g, b = row_components[:4]
-
-            max_entry = {"value": float(value), "colour": [int(r), int(g), int(b)]}
-
-            if min_entry is None:
-                min_entry = max_entry
-                continue
-
-            legend_values.append({"min": min_entry, "max": max_entry})
-
-    legend = {"type": "range", "values": legend_values}
-
-    with open(legend_path, "w") as legend_file:
-        json.dump(legend, legend_file, indent=2)
 
 
 def convert_to_cog(raster_path: str | Path, output_path: str | Path) -> None:

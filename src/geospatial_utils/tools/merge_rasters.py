@@ -45,7 +45,7 @@ def run_from_cli(args: SimpleNamespace) -> None:
 
 def run(raster_paths: list[str | Path], output_path: str | Path) -> None:
     """The main run function."""
-    logging.info("Checking input rasters")
+    logger.info("Checking input rasters")
     check_for_consistent_srs(raster_paths=raster_paths)
 
     with tempfile.TemporaryDirectory() as temp_dir:

@@ -42,11 +42,11 @@ def run_from_cli(args: SimpleNamespace) -> None:
 
 def run(raster_path: str | Path, output_path: str | Path, epsg_code: int) -> None:
     """The main run function."""
-    logging.info(f"Reprojecting raster to EPSG {epsg_code}")
+    logger.info(f"Reprojecting raster to EPSG {epsg_code}")
 
     reproject_raster(input_path=raster_path, output_path=output_path, output_epsg_code=epsg_code)
 
-    logging.info("Finished")
+    logger.info("Finished")
 
 
 if __name__ == "__main__":
