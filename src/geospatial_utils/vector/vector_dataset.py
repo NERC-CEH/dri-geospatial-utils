@@ -14,7 +14,7 @@ class VectorDataset(DatasetABC):
     def __init__(self, ds: str | Path | gdal.Dataset, layer_name: str = None):
         super().__init__(ds)
 
-        self.layer = self.get_layer()
+        self.layer = self.get_layer(layer_name)
 
     @property
     def fields(self) -> list[Field]:

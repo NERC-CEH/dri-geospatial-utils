@@ -8,6 +8,7 @@ from geospatial_utils.tools import (
     merge_nodata,
     merge_rasters,
     raster_boundary,
+    rasterise_vector,
     reproject_raster,
     scale_raster,
 )
@@ -24,6 +25,7 @@ MODULES = [
     merge_nodata,
     colour_raster,
     colour_elevation_raster,
+    rasterise_vector,
 ]
 
 
