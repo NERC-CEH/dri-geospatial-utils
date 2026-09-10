@@ -47,7 +47,7 @@ def reproject_raster(
         srcSRS=input_srs,
         xRes=abs(pixel_width),
         yRes=abs(pixel_height),
-        resampleAlg="bilinear",
+        resampleAlg=None,
         creationOptions=DEFAULT_CREATION_OPTIONS,
     )
 
