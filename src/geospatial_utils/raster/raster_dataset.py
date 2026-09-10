@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import NamedTuple
+from typing import Iterator, NamedTuple
 
 from osgeo import gdal, osr
 
@@ -36,6 +36,7 @@ class RasterDataset(DatasetABC):
             IOError: The raster file doesn't exist.
 
         """
+        # Paths which start with /vsicurl indicates a remote source and are not supported here
         if not Path(file_path).exists() and not str(file_path).startswith("/vsicurl"):
             raise IOError(f"The dataset; {file_path} does not exist")
 
@@ -86,7 +87,7 @@ class RasterDataset(DatasetABC):
         y_pixel = (y_coord - self.geotransform.ul_y - x_coord * self.geotransform.y_rot) / self.geotransform.y_res
         return int(round(x_pixel, 0)), int(round(y_pixel, 0))
 
-    def block_iterator(self) -> tuple(int, int, int, int):
+    def block_iterator(self) -> Iterator[tuple[int, int, int, int]]:
         raster_band = self.ds.GetRasterBand(1)
         block_x_size, block_y_size = raster_band.GetBlockSize()
 

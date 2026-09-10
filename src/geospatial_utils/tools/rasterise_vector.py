@@ -26,6 +26,15 @@ VALUE_FIELD = "value"
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    """Adds the command line arguments to the parser for the convert_to_cog CLI tool.
+
+    Args:
+        parser: Empty ArgumentParser object
+
+    Returns:
+        ArgumentParser object with arguments added.
+
+    """
     parser.add_argument("--vector_path", type=Path, help="Path to the vector to be rasterised")
     parser.add_argument("--output_path", type=Path, help="Path to the output raster")
     parser.add_argument(
@@ -71,7 +80,7 @@ def run_from_cli(args: SimpleNamespace) -> None:
 
     """
     # Call the main run function
-    run(
+    rasterise_vector(
         vector_path=args.vector_path,
         output_path=args.output_path,
         colour_mapping_path=args.colour_mapping_path,
@@ -81,7 +90,7 @@ def run_from_cli(args: SimpleNamespace) -> None:
     )
 
 
-def run(
+def rasterise_vector(
     vector_path: str | Path,
     output_path: str | Path,
     colour_mapping_path: str | Path,
@@ -89,7 +98,24 @@ def run(
     resolution: float,
     layer_name: str | None = None,
 ) -> None:
-    """The main run function."""
+    """
+    Converts a vector to a raster, applying colours based on the vector's properties.
+
+    Args:
+        vector_path: Path to the vector to be rasterised.
+        output_path: Path to save the created raster to.
+        colour_mapping_path: Path to the json file mapping vector feature property values to the colour that should
+            represent them in the output raster.
+        legend_field: Name of the property / field in individual vector features used to map to the colours
+        resolution: Resolution to use to create the output raster in. This should be in the same units as the vector's
+            coordinate system. For example, if the vector is in EPSG 4326 the resolution should be in degrees, whereas
+            for EPSG 3857 the resolution will be in metres.
+        layer_name: Name of the layer within the vector file to read. If not provided then it is assumed the vector
+            file only has a single layer.
+
+    Raises:
+        ValueError: The legend field could not be found in the vector file.
+    """
     logger.info("Rasterizing vector")
     vector_ds = VectorDataset(vector_path, layer_name=layer_name)
 

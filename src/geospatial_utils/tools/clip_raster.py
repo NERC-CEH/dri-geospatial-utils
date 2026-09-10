@@ -19,6 +19,15 @@ DESCRIPTION = "Clip a raster to a boundary geometry"
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    """Adds the command line arguments to the parser for the convert_to_cog CLI tool.
+
+    Args:
+        parser: Empty ArgumentParser object
+
+    Returns:
+        ArgumentParser object with arguments added.
+
+    """
     parser.add_argument("--raster_path", type=Path, help="Paths to the raster to be clipped.")
     parser.add_argument(
         "--clip_boundary_path",
@@ -62,6 +71,24 @@ def run(raster_path: str | Path, clip_boundary_path: str | Path, output_path: st
 def reproject_clip_boundary(
     clip_boundary_path: str | Path, raster_path: str | Path, output_dir: str | Path
 ) -> str | Path:
+    """
+    Reproject the clipping boundary to the same projection as the raster to be clipped. If no reprojection is required
+    the path of the clip boundary dataset will be returned without modification.
+
+    Args:
+        clip_boundary_path: Path to the vector file used to clip the raster. It is expected this will be contain
+        a single feature within a single layer.
+        raster_path: Path to the raster to be clipped.
+        output_dir: Directory to write the clipped raster to.
+
+    Raises:
+        ValueError: The raster has no coordinate system that could be detected by GDAL
+        ValueError: The clip boundary vector has no coordinate system that could be detected by GDAL
+
+    Returns:
+        Path to the reprojected clip boundary vector dataset.
+
+    """
     raster_ds = RasterDataset(raster_path)
     clip_ds = VectorDataset(clip_boundary_path)
 
@@ -81,6 +108,15 @@ def reproject_clip_boundary(
 
 
 def clip_raster(raster_path: str | Path, clip_boundary_path: str | Path, output_path: str | Path) -> None:
+    """
+    Clip the raster using the boundary vector dataset.
+
+    Args:
+        raster_path: Path to the raster to be clipped
+        clip_boundary_path: Path to the vector dataset containing the geometry to clip the raster to.
+        output_path: Path to save the clipped raster to.
+
+    """
     raster_ds = RasterDataset(raster_path)
 
     gdal.Warp(

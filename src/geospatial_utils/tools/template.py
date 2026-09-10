@@ -14,7 +14,16 @@ DEFAULT_EPSG_CODE = 3857
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-    # Example parser entry. Delete before use
+    """Adds the command line arguments to the parser for the convert_to_cog CLI tool.
+
+    Args:
+        parser: Empty ArgumentParser object
+
+    Returns:
+        ArgumentParser object with arguments added.
+
+    """
+    # Example parser entry. Replace with correct arguments before use
     parser.add_argument("--raster_path", type=Path, help="Path to the raster to be converted")
 
     return parser

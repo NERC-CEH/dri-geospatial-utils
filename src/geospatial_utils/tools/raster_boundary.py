@@ -59,18 +59,13 @@ def run(
     raster_path: Path,
     output_path: Path,
 ) -> None:
-    """Generates simplified boundaries for one or more rasters.
-
-    Determines whether to process a single raster or all rasters in a directory.
+    """Generates a simplified boundary for the provided raster
 
     Args:
         raster_path: Path to the raster to create the boundary from.
-        output_path: Location of the geojson file to create.
+        output_path: Path to save the boundary vector file to.
 
-    Raises:
-        ValueError: If neither raster_path nor raster_dir is provided.
     """
-
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     raster_boundary(raster_path=raster_path, output_path=output_path)

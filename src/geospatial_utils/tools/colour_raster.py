@@ -16,6 +16,15 @@ DEFAULT_EPSG_CODE = 3857
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    """Adds the command line arguments to the parser for the convert_to_cog CLI tool.
+
+    Args:
+        parser: Empty ArgumentParser object
+
+    Returns:
+        ArgumentParser object with arguments added.
+
+    """
     parser.add_argument("--raster_path", type=Path, help="Path to the raster to be coloured")
     parser.add_argument("--output_path", type=Path, help="Path to save the output raster to.")
     parser.add_argument("--colourmap_path", type=Path, help="Path to the colourmap to apply to be converted")
@@ -44,12 +53,19 @@ def run_from_cli(args: SimpleNamespace) -> None:
     and calling the main `run` function directly from anywhere else in the codebase if needed.
 
     """
-    # Call the main run function
-    run(raster_path=args.raster_path, output_path=args.output_path, colourmap_path=args.colourmap_path)
+    colour_raster(raster_path=args.raster_path, output_path=args.output_path, colourmap_path=args.colourmap_path)
 
 
-def run(raster_path: str | Path, output_path: str | Path, colourmap_path: str | Path) -> None:
-    """The main run function."""
+def colour_raster(raster_path: str | Path, output_path: str | Path, colourmap_path: str | Path) -> None:
+    """
+    Applies the colourmap to the greyscale raster.
+
+    Args:
+        raster_path: Path to the greyscale raster to be coloured.
+        output_path: Path to save the coloured raster to.
+        colourmap_path: Path to the colourmap to apply.
+
+    """
     output_path = Path(output_path)
 
     logger.info("Applying colourmap")

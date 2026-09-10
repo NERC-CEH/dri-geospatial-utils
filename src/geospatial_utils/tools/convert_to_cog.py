@@ -220,31 +220,23 @@ def reproject_to_epsg_3857(raster_path: str | Path, output_path: str | Path, inp
         output_path: _description_
         input_epsg: _description_. Defaults to 27700.
     """
-
-    # open raster and get the spatial reference
     ds = gdal.Open(raster_path)
     ds_srs = ds.GetSpatialRef()
 
-    # import the EPSG and put it in the container.
-    # if the EPSG isn't picked up, require user input.
+    # If there is no coordinate system associated with the raster dataset, create a new spatial reference using the
+    # input EPSG code.
     if ds_srs is None:
         ds_srs = osr.SpatialReference()
         ds_srs.ImportFromEPSG(input_epsg)
 
-    # get spatial reference from gdal - one to reproject to
     target_srs = osr.SpatialReference()
     target_srs.ImportFromEPSG(3857)
 
-    # reprojection options using gdal warp, save as an object to call later
-    # https://gdal.org/en/stable/api/python/utilities.html for info on how to run the gdal.Warp function.
     options = gdal.WarpOptions(
         srcSRS=ds_srs, dstSRS=target_srs.ExportToWkt(), format="GTiff", creationOptions=DEFAULT_CREATION_OPTIONS
     )
-
-    # Set the config options
     gdal.SetConfigOption("GTIFF_SRS_SOURCE", "EPSG")
 
-    # run the reprojection
     gdal.Warp(output_path, ds, options=options)
 
 

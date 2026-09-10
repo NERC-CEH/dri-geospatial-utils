@@ -18,6 +18,15 @@ DEFAULT_EPSG_CODE = 3857
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    """Adds the command line arguments to the parser for the convert_to_cog CLI tool.
+
+    Args:
+        parser: Empty ArgumentParser object
+
+    Returns:
+        ArgumentParser object with arguments added.
+
+    """
     parser.add_argument("--raster_path", type=Path, help="Path to the raster to be coloured")
     parser.add_argument("--output_path", type=Path, help="Path to save the output raster to.")
     parser.add_argument("--colourmap_path", type=Path, help="Path to the colourmap to apply to be converted")
@@ -47,11 +56,23 @@ def run_from_cli(args: SimpleNamespace) -> None:
 
     """
     # Call the main run function
-    run(raster_path=args.raster_path, output_path=args.output_path, colourmap_path=args.colourmap_path)
+    colour_elevation_raster(
+        raster_path=args.raster_path, output_path=args.output_path, colourmap_path=args.colourmap_path
+    )
 
 
-def run(raster_path: str | Path, output_path: str | Path, colourmap_path: str | Path) -> None:
-    """The main run function."""
+def colour_elevation_raster(raster_path: str | Path, output_path: str | Path, colourmap_path: str | Path) -> None:
+    """
+    Colours an elevation based raster.
+
+    Initially applies basic colouration before combining with a hillshade representation of the elevation raster
+
+    Args:
+        raster_path: Path to the single band greyscale elevation raster to be coloured.
+        output_path: Path to save the coloured elevation raster to.
+        colourmap_path: Path to the colourmap to apply to the raster.
+
+    """
     output_path = Path(output_path)
 
     with tempfile.TemporaryDirectory() as temp_directory:

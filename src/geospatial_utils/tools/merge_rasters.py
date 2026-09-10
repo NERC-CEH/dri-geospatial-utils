@@ -19,7 +19,15 @@ DESCRIPTION = "Merge two or more rasters together"
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-    # Example parser entry. Delete before use
+    """Adds the command line arguments to the parser for the convert_to_cog CLI tool.
+
+    Args:
+        parser: Empty ArgumentParser object
+
+    Returns:
+        ArgumentParser object with arguments added.
+
+    """
     parser.add_argument("--raster_paths", type=Path, nargs="+", help="Paths to the raster to be merged")
     parser.add_argument("--output_path", type=Path, help="Path to save the merged raster to")
 

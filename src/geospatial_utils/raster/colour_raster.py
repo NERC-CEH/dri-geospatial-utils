@@ -38,8 +38,7 @@ def colour_ramp(
     Args:
         input_raster_path: Path to the raster file to fit the template colour ramp to.
         colourmap_template_path: Text file containing the colour ramp to modify to work with the input raster.
-        output_colour_ramp_path: Location to save the customised colour ramp to. It is expected this should not already
-            exist.
+        output_colour_ramp_path: Location to save the customised colour ramp to.
 
     Raises:
         ValueError: No nodata value could be found within the raster.
@@ -121,16 +120,10 @@ def apply_colour_relief(raster_path: str | Path, colourmap_path: str | Path, out
         addAlpha=True,
     )
 
-    # # Ensure the nodata value for each band is 0
-    # colour_ds = RasterDataset(output_path)
-    # for band_index in range(1, colour_ds.ds.RasterCount + 1):
-    #     band = colour_ds.ds.GetRasterBand(band_index)
-    #     band.SetNoDataValue(0)
-
     add_alpha_mask(greyscale_raster_path=raster_path, colour_raster_path=output_path)
 
 
-def add_alpha_mask(greyscale_raster_path: Path, colour_raster_path: Path) -> None:
+def add_alpha_mask(greyscale_raster_path: str | Path, colour_raster_path: str | Path) -> None:
     """Use the original greyscale raster to calculate the areas of nodata before applying them to the colour raster.
 
     Note that it is assumed that the greyscale and colour raster are identical and will align perfectly
@@ -138,6 +131,10 @@ def add_alpha_mask(greyscale_raster_path: Path, colour_raster_path: Path) -> Non
     Args:
         greyscale_raster_path: Path to the original greyscale raster
         colour_raster_path: Path to the coloured raster path for the same raster
+
+    Raises:
+        ValueError: No nodata value present therefore nodata areas cannot be identified.
+
     """
     greyscale_ds = RasterDataset(greyscale_raster_path)
 
@@ -211,11 +208,7 @@ def apply_hillshade(raster_path: str | Path, output_path: str | Path) -> None:
 
     Args:
         raster_path: Path to the single band raster to be colourised.
-        colour_ramp_path: Path to the .txt file containing the colour ramp information
         output_path: Path to write the output, RGBA formatted colourised raster to.
-
-    Raises:
-        ValueError: No nodata value could be found for the input raster.
 
     """
 
