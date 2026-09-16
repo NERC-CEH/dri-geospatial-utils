@@ -16,6 +16,15 @@ DEFAULT_EPSG_CODE = 3857
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    """Adds the command line arguments to the parser for the convert_to_cog CLI tool.
+
+    Args:
+        parser: Empty ArgumentParser object
+
+    Returns:
+        ArgumentParser object with arguments added.
+
+    """
     parser.add_argument("--raster_path", type=Path, required=True, help="Path to the raster to be converted")
     parser.add_argument("--output_path", type=Path, required=True, help="Path to the save the reprojected raster to.")
     parser.add_argument("--epsg_code", type=int, required=True, help="EPSG code to reproject the raster to.")
@@ -41,12 +50,20 @@ def run_from_cli(args: SimpleNamespace) -> None:
 
 
 def run(raster_path: str | Path, output_path: str | Path, epsg_code: int) -> None:
-    """The main run function."""
-    logging.info(f"Reprojecting raster to EPSG {epsg_code}")
+    """
+    Reproject a raster to a new coordinate system.
+
+    Args:
+        raster_path: Path to the raster to be reprojected.
+        output_path: Path to save the reprojected raster to.
+        epsg_code: EPSG code of the coordinate system to reproject the raster to.
+
+    """
+    logger.info(f"Reprojecting raster to EPSG {epsg_code}")
 
     reproject_raster(input_path=raster_path, output_path=output_path, output_epsg_code=epsg_code)
 
-    logging.info("Finished")
+    logger.info("Finished")
 
 
 if __name__ == "__main__":

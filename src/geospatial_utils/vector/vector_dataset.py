@@ -3,23 +3,18 @@ from pathlib import Path
 
 from osgeo import gdal, ogr, osr
 
+from geospatial_utils.utils.dataset_utils import DatasetABC
 from geospatial_utils.vector.io import create_vector_dataset, get_driver_name, write_feature_to_output_layer
 from geospatial_utils.vector.types import Field
 
 logger = logging.getLogger(__name__)
 
 
-class VectorDataset:
+class VectorDataset(DatasetABC):
     def __init__(self, ds: str | Path | gdal.Dataset, layer_name: str = None):
-        if isinstance(ds, str | Path):
-            self.open_dataset(ds)
-        elif isinstance(ds, gdal.Dataset):
-            self.ds = ds
-        else:
-            raise ValueError(f"{ds} is not a valid vector dataset.")
+        super().__init__(ds)
 
-        self.layer = self.get_layer()
-        self.srs = self.layer.GetSpatialRef()
+        self.layer = self.get_layer(layer_name)
 
     @property
     def fields(self) -> list[Field]:
@@ -41,6 +36,10 @@ class VectorDataset:
             return self.ds.GetLayer(layer_name)
 
         return self.ds.GetLayer()
+
+    def get_srs(self) -> osr.SpatialReference:
+        layer = self.get_layer()
+        return layer.GetSpatialRef()
 
     def reproject_layer(
         self,

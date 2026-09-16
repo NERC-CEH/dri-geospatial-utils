@@ -1,4 +1,4 @@
-"""Convert one or more rasters to a COG formatted raster, in EPSG 3857."""
+"""Script summary here."""
 
 import argparse
 import logging
@@ -7,23 +7,30 @@ from types import SimpleNamespace
 
 logger = logging.getLogger(__name__)
 
-COMMAND = "convert_to_cog"
-DESCRIPTION = "Convert raster(s) to COG format, reprojected into EPSG 3857."
+COMMAND = "command_name"
+DESCRIPTION = "Add description here"
 
 DEFAULT_EPSG_CODE = 3857
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-    # Example parser entry. Delete before use
+    """Adds the command line arguments to the parser for the convert_to_cog CLI tool.
+
+    Args:
+        parser: Empty ArgumentParser object
+
+    Returns:
+        ArgumentParser object with arguments added.
+
+    """
+    # Example parser entry. Replace with correct arguments before use
     parser.add_argument("--raster_path", type=Path, help="Path to the raster to be converted")
 
     return parser
 
 
 def main() -> None:
-    """Entrypoint to the script. This is standardised to make registering the script with the core CLI easy
-    DO NOT MODIFY
-    """
+    """Entrypoint to the script. This is standardised to make registering the script with the core CLI easy."""
 
     parser = argparse.ArgumentParser(prog=COMMAND, description=DESCRIPTION)
 
@@ -44,14 +51,14 @@ def run_from_cli(args: SimpleNamespace) -> None:
 
     """
     # Call the main run function
-    run(raster_path=args.raster_path, raster_dir=args.raster_dir, output_dir=args.output_dir)
+    run(raster_path=args.raster_path)
 
 
-def run(raster_path: str | Path, raster_dir: str | Path, output_dir: str | Path) -> None:
+def run(raster_path: str | Path) -> None:
     """The main run function."""
-    logging.info("Converting to COG")
+    logger.info("Starting")
 
-    logging.info("Finished")
+    logger.info("Finished")
 
 
 if __name__ == "__main__":
