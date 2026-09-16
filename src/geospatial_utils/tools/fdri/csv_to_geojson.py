@@ -16,14 +16,14 @@ DESCRIPTION = "Convert gauging csv files into geojson to store metadata."
 
 # create a mapping to create consistant column names in all fdri observatory csv files.
 POSSIBLE_NAME_KEY = {
-    "Start_date": ["start_Date", "Data Start", "data_start", "Data_start", "start_date", "oldest_survey", "TUBE_START"],
-    "End_date": ["Data End", "Data_end", "newest_survey", "end_date", "TUBE_END_D"],
-    "Site_ID": ["AWS_ID", "Site ID", "Station_number", "SiteID", "TUBE_ID"],
-    "Altitude": ["altitude", "Altitude_m", "ALTITUDE"],
-    "Name": ["AWS_name", "Site Name", "SiteName", "AWS_Name", "SITE_NAME"],
-    "Latitude": ["lat", "latitude", "LATITUDE"],
-    "Longitude": ["lon", "longitude", "LONGITUDE"],
-    "Instrument": ["instrument"],
+    "start_date": ["start_Date", "Data Start", "data_start", "Data_start", "start_date", "oldest_survey", "TUBE_START"],
+    "end_date": ["Data End", "Data_end", "newest_survey", "end_date", "TUBE_END_D"],
+    "site_ID": ["AWS_ID", "Site ID", "Station_number", "SiteID", "TUBE_ID"],
+    "altitude": ["altitude", "Altitude_m", "ALTITUDE"],
+    "name": ["AWS_name", "Site Name", "SiteName", "AWS_Name", "SITE_NAME"],
+    "latitude": ["lat", "latitude", "LATITUDE"],
+    "longitude": ["lon", "longitude", "LONGITUDE"],
+    "instrument": ["instrument"],
 }
 
 
